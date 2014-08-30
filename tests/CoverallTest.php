@@ -1,0 +1,221 @@
+<?php
+namespace Splot\DependencyInjection\Tests;
+
+use Splot\DependencyInjection\Container;
+
+use Splot\DependencyInjection\Tests\TestFixtures\CalledService;
+use Splot\DependencyInjection\Tests\TestFixtures\CollectionService;
+use Splot\DependencyInjection\Tests\TestFixtures\ExtendedService;
+use Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService;
+use Splot\DependencyInjection\Tests\TestFixtures\NamedFactoryService;
+use Splot\DependencyInjection\Tests\TestFixtures\NamedFactoryProduct;
+use Splot\DependencyInjection\Tests\TestFixtures\SimpleService;
+use Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory;
+
+class CoverallTest extends \PHPUnit_Framework_TestCase
+{
+
+    protected $container;
+
+    public function setUp() {
+        $this->container = new Container();
+        $this->container->loadFromFile(__DIR__ .'/fixtures/coverall.yml');
+    }
+
+    public function testParametersDefinition() {
+        // validate parameters
+        $this->assertEquals(array(
+            'debug' => true,
+            'debug.relative' => true,
+            'name' => 'di',
+            'name.prefixed' => 'lib.di',
+            'vendor' => 'splot',
+            'full_name' => 'splot.lib.di.lib',
+            'version' => 2,
+            'authors' => array(
+                'Michał Dudek',
+                'John Doe',
+                'di Salvatore'
+            ),
+            'authors.compact' => array(
+                'Michał Dudek',
+                'John Doe',
+                'di Salvatore'
+            ),
+            'simple_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService',
+            'parametrized_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService',
+            'called_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\CalledService',
+            'extended_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService',
+            'collection_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\CollectionService',
+            'simple_factory.class' => 'Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory'
+        ), $this->container->dumpParameters());
+    }
+
+    public function testSimpleService() {
+        $this->assertTrue($this->container->get('simple_service') instanceof SimpleService);
+        $this->assertTrue($this->container->get('simple_service.full') instanceof SimpleService);
+        $this->assertTrue($this->container->get('simple_service.dynamic') instanceof SimpleService);
+        $this->assertTrue($this->container->get('simple_service.dynamic.full') instanceof SimpleService);
+    }
+
+    public function testParametrizedService() {
+        $this->markTestIncomplete();
+        
+        // parametrized via constructor injector
+        // test both full and compact arguments
+        foreach(array(
+            'parametrized_service',
+            'parametrized_service.compact'
+        ) as $name) {
+            $parametrizedService = $this->container->get($name);
+            $this->assertTrue($parametrizedService instanceof ParametrizedService);
+            $this->assertSame($this->container->get('simple_service'), $parametrizedService->simple);
+            $this>assertEquals('di.parametrized', $parametrizedService->name);
+            $this->assertEquals(2, $parametrizedService->version);
+            $this->assertEquals(true, $parametrizedService->debug);
+            $this->assertNull($parametrizedService->not_existent);
+        }
+    }
+
+    public function testCalledService() {
+        $this->markTestIncomplete();
+        
+        $calledService = $this->container->get('called_service');
+        $simpleService = $this->container->get('simple_service');
+        $this->assertTrue($this->calledService instanceof CalledService);
+        $this->assertEquals('di.overwritten', $calledService->getName());
+        $this->assertEquals(3, $calledService->getVersion());
+        $this->assertSame($simpleService, $calledService->getSimple());
+        $this->assertNull($calledService->getOptionallySimple());
+    }
+
+    public function testExtendedService() {
+        $this->markTestIncomplete();
+        
+        $extendedService = $this->container->get('extended_service');
+        $this->assertTrue($extendedService instanceof ExtendedService);
+        $this->assertNotSame($this->container->get('called_service'), $extendedService);
+        $this->assertEquals('di.overwritten', $extendedService->getName());
+        $this->assertEquals('extended', $extendedService->getSubname());
+        $this->assertEquals(2, $extendedService->getVersion());
+        $this->assertSame($this->container->get('simple_service'), $extendedService->getOptionallySimple());
+        $this->assertTrue($extendedService->getExtended());
+    }
+
+    public function testAliasedService() {
+        $this->markTestIncomplete();
+        
+        $this->assertSame($this->container->get('aliased_service'), $this->container->get('aliased_service.alias'));
+
+        $multiAliasService = $this->container->get('aliased_service.multi');
+        $this->assertSame($multiAliasService, $this->container->get('aliased_service.multi.one'));
+        $this->assertSame($multiAliasService, $this->container->get('aliased_service.multi.two'));
+        $this->assertSame($multiAliasService, $this->container->get('aliased_service.multi.three'));
+
+        $this->assertSame($this->container->get('aliased_service.link'), $this->container->get('simple_service'));
+    }
+
+    public function testNotSingleton() {
+        $this->assertNotSame($this->container->get('simple_service.not_singleton'), $this->container->get('simple_service.not_singleton'));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\ReadOnlyException
+     */
+    public function testReadOnlyService() {
+        $this->markTestIncomplete();
+        
+        $this->container->register('simple_service.read_only', 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService');
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\AbstractServiceException
+     */
+    public function testAbstractService() {
+        $this->markTestIncomplete();
+        
+        $this->container->get('simple_service.abstract');
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\PrivateServiceException
+     */
+    public function testPrivateService() {
+        $this->markTestIncomplete();
+        
+        $this->container->get('simple_service.private');
+    }
+
+    public function testPrivateDependency() {
+        $this->markTestIncomplete();
+        
+        $service = $this->container->get('parametrized_service.private_dependency');
+        $this->assertTrue($service instanceof ParametrizedService);
+        $this->assertTrue($service->simple instanceof SimpleService);
+    }
+
+    public function testCollectionService() {
+        $this->markTestIncomplete();
+        
+        $service = $this->get('collection_service');
+        $this->assertTrue($service instanceof CollectionService);
+        $collection = $service->getServices();
+        $this->assertCount(4, $collection);
+        foreach(array(
+            'item_one',
+            'item_one.alias',
+            'item_two',
+            'factory_product'
+        ) as $name) {
+            $this->assertArrayHasKey($name, $collection);
+            $this->assertTrue($collection[$name] instanceof SimpleService);
+        }
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\PrivateServiceException
+     */
+    public function testCollectionPrivateService() {
+        $this->markTestIncomplete();
+        
+        $this->container->get('collection_service.item_two');
+    }
+
+    public function testSimpleFactoryService() {
+        $this->markTestIncomplete();
+        
+        $this->assertTrue($this->container->get('simple_factory') instanceof SimpleFactory);
+        $this->assertTrue($this->container->get('simple_factory.product.one') instanceof SimpleService);
+        $this->assertTrue($this->container->get('simple_factory.product.two') instanceof SimpleService);
+        $this->assertTrue($this->container->get('simple_factory.product.three') instanceof SimpleService);
+    }
+
+    public function testFactorySingleton() {
+        $this->markTestIncomplete();
+        
+        $this->assertSame($this->container->get('simple_factory.product.two'), $this->container->get('simple_factory.product.two'));
+    }
+
+    public function testFactoryNotSingleton() {
+        $this->markTestIncomplete();
+        
+        $this->assertNotSame($this->container->get('simple_factory.product.not_singleton'), $this->container->get('simple_factory.product.not_singleton'));
+    }
+
+    public function testVerboseFactory() {
+        $this->markTestIncomplete();
+        
+        $service = $this->container->get('named_factory.verbose_product');
+        $this->assertTrue($service instanceof NamedFactoryProduct);
+        $this->assertEquals('verbose', $service->getName());
+    }
+
+    public function testCompactFactory() {
+        $this->markTestIncomplete();
+        
+        $service = $this->container->get('named_factory.product.compact');
+        $this->assertTrue($service instanceof NamedFactoryProduct);
+        $this->assertEquals('compact', $service->getName());
+    }
+
+}

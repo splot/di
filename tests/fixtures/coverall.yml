@@ -1,0 +1,147 @@
+parameters:
+    debug: true
+    debug.relative: %debug%
+    name: di
+    name.prefixed: lib.%name%
+    vendor: splot
+    full_name: %vendor%.%name.prefixed%.lib
+    version: 2
+    authors:
+        - Michał Dudek
+        - John Doe
+        - %name% Salvatore
+    authors.compact: ["Michał Dudek", "John Doe", "%name% Salvatore"]
+    simple_service.class: Splot\DependencyInjection\Tests\TestFixtures\SimpleService
+    parametrized_service.class: Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService
+    called_service.class: Splot\DependencyInjection\Tests\TestFixtures\CalledService
+    extended_service.class: Splot\DependencyInjection\Tests\TestFixtures\ExtendedService
+    collection_service.class: Splot\DependencyInjection\Tests\TestFixtures\CollectionService
+    simple_factory.class: Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory
+
+services:
+    simple_service: Splot\DependencyInjection\Tests\TestFixtures\SimpleService
+    simple_service.full:
+        class: Splot\DependencyInjection\Tests\TestFixtures\SimpleService
+    simple_service.dynamic: %simple_service.class%
+    simple_service.dynamic.full:
+        class: %simple_service.class%
+
+    parametrized_service:
+        class: Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService
+        arguments:
+            - @simple_service
+            - %name%.parametrized
+            - %version%
+            - %debug%
+            - @simple_service.undefined? # optional, if not found then null
+
+    parametrized_service.compact:
+        class: Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService
+        arguments: ["@simple_service", "%name%.parametrized.compact", "%version%", "%debug%", "@simple_service.undefined?"]
+
+    called_service:
+        class: %called_service.class%
+        arguments: ["%name", "%version%"]
+        call:
+            - [setName, ["%name%.overwritten"]]
+            - [setVersion, [3]]
+            - [setSimple, ["@simple_service", "@simple_service.undefined?"]]
+
+    extended_service:
+        class: %extended_service.class%
+        parent: called_service
+        arguments: ["extended"]
+        call:
+            - ["setOptionallySimple", ["@simple_service?"]]
+            - ["setExtended", [true]]
+
+    aliased_service:
+        class: %simple_service.class%
+        aliases: aliased_service.alias
+
+    aliased_service.multi:
+        class: %simple_service.class%
+        aliases:
+            - aliased_service.multi.one
+            - aliased_service.multi.two
+            - aliased_service.multi.three
+
+    aliased_service.link:
+        alias: simple_service
+
+    simple_service.not_singleton:
+        class: %simple_service.class%
+        singleton: false
+
+    simple_service.read_only:
+        class: %simple_service.class%
+        read_only: true
+
+    simple_service.abstract:
+        class: %simple_service.class%
+        abstract: true
+
+    simple_service.private:
+        class: %simple_service.class%
+        private: true
+
+    parametrized_service.private_dependency:
+        class: Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService
+        arguments: ["@simple_service.private", "%name%.parametrized.compact", "%version%", "%debug%"]
+
+    collection_service:
+        class: %collection_service.class%
+
+    collection_service.item_one:
+        class: %simple_service.class%
+        notify:
+            - ["collection_service", "addService", ["@", "item_one"]]
+            - ["collection_service", "addService", ["@", "item_one.alias"]]
+
+    collection_service.item_two:
+        class: %simple_service.class%
+        private: true
+        notify:
+            - ["collection_service", "addService", ["@", "item_two"]]
+
+    simple_factory: %simple_factory.class%
+
+    simple_factory.product.one:
+        class: %simple_service.class% # if class defined then verify the result
+        factory: ["@simple_factory", "get"]
+
+    simple_factory.product.two:
+        factory: ["@simple_factory", "get"]
+
+    simple_factory.product.three:
+        factory: ["@simple_factory", "get"]
+        #abstract: true -- error, cannot be abstract - check when building
+        notify:
+            - ["collection_service", "addService", ["@", "factory_product"]]
+
+    simple_factory.product.not_singleton:
+        factory: ["@simple_factory", "get"]
+        singleton: false
+
+    named_factory: %named_factory.class%
+
+    named_factory.verbose_product:
+        factory_service: named_factory
+        factory_method: provide
+        factory_arguments:
+            - verbose
+
+    named_factory.product.compact: ["@named_factory", "provide", ["compact"]]
+
+    # e.g. how to register events
+    event_manager:
+        class: Splot\Framework\EventManager\EventManager
+        arguments: ["@container"]
+
+    users_repository:
+        class: Knit\Entity\Repository
+        factory: ["@knit", "getRepository", ["Focusson\\Auth\\Entity\\User"]]
+        notify:
+            - ["event_manager", "subscribeService", ["Knit\\Events\\DidUpdateEntity", "users_repository", "onUpdate"]]
+            - ["event_manager", "subscribeService", ["Knit\\Events\\DidDeleteEntity", "users_repository", "onDelete"]]
+
