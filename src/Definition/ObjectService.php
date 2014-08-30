@@ -14,4 +14,9 @@ class ObjectService extends Service
         $this->class = Debugger::getType($object);
     }
 
+    public function getSingleton() {
+        // object services need to always be singletons
+        return true;
+    }
+
 }

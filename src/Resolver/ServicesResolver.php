@@ -43,18 +43,12 @@ class ServicesResolver
      */
     public function resolve(Service $service) {
         // if already instantiated then just return that instance
-        if ($instance = $service->getInstance()) {
-            return $instance;
-        }
-
-        // deal with closure services
-        if ($service instanceof ClosureService) {
-            $instance = call_user_func_array($service->getClosure(), array($this->container));
-            $service->setInstance($instance);
+        if ($service->isSingleton() && ($instance = $service->getInstance())) {
             return $instance;
         }
 
         $instance = $this->instantiateService($service);
+        $service->setInstance($instance);
 
         return $instance;
     }
@@ -66,6 +60,11 @@ class ServicesResolver
      * @return object
      */
     protected function instantiateService(Service $service) {
+        // deal with closure services
+        if ($service instanceof ClosureService) {
+            return call_user_func_array($service->getClosure(), array($this->container));
+        }
+
         // class can be defined as a parameter
         $class = $this->parametersResolver->resolve($service->getClass());
 

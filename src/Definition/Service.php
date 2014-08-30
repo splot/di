@@ -10,6 +10,10 @@ class Service
 
     protected $arguments = array();
 
+    protected $singleton = true;
+
+    protected $readOnly = false;
+
     protected $instance;
 
     public function __construct($name) {
@@ -36,11 +40,39 @@ class Service
         return $this->arguments;
     }
 
+    public function setSingleton($singleton) {
+        return $this->singleton = $singleton;
+    }
+
+    public function getSingleton() {
+        return $this->singleton;
+    }
+
+    public function isSingleton() {
+        return $this->getSingleton();
+    }
+
+    public function setReadOnly($readOnly) {
+        $this->readOnly = $readOnly;
+    }
+
+    public function getReadOnly() {
+        return $this->readOnly;
+    }
+
+    public function isReadOnly() {
+        return $this->getReadOnly();
+    }
+
     public function getInstance() {
         return $this->instance;
     }
 
     public function setInstance($instance) {
+        // if not singleton then no point in keeping reference
+        if (!$this->isSingleton()) {
+            return;
+        }
         $this->instance = $instance;
     }
 

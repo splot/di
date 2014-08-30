@@ -12,6 +12,7 @@ use Splot\DependencyInjection\Definition\ClosureService;
 use Splot\DependencyInjection\Definition\ObjectService;
 use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
+use Splot\DependencyInjection\Exceptions\ReadOnlyException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServicesResolver;
@@ -40,7 +41,9 @@ class Container
      */
     protected $defaultOptions = array(
         'class' => '',
-        'arguments' => array()
+        'arguments' => array(),
+        'singleton' => true,
+        'read_only' => false
     );
 
     /**
@@ -80,6 +83,8 @@ class Container
      * @param object|closure $object Object to be set as a service or a closure that returns the service.
      * @param array   $options   [optional] Array of options for the service definition.
      * @param boolean $singleton Deprecated.
+     *
+     * @throws ReadOnlyException When trying to overwrite a service that is marked as read only.
      */
     public function set($name, $object, $options = array(), $singleton = true) {
         // for backward compatibility
@@ -98,6 +103,8 @@ class Container
      * @param  string $name    Name of the service.
      * @param  array|string $options Array of options for the service definition or a string with name
      *                               of a class to instantiate.
+     * 
+     * @throws ReadOnlyException When trying to overwrite a service that is marked as read only.
      */
     public function register($name, $options) {
         // if $options is a string then treat it as a class name
@@ -252,8 +259,15 @@ class Container
      * 
      * @param Service $service Service definition.
      * @param array   $options [optional] Array of options.
+     *
+     * @throws ReadOnlyException When trying to overwrite a service that is marked as read only.
      */
     protected function addService(Service $service, array $options = array()) {
+        // trying to overwrite previously defined read only service?
+        if ($this->has($service->getName()) && $this->services[$service->getName()]->isReadOnly()) {
+            throw new ReadOnlyException('Could not overwrite a read only service "'. $service->getName() .'".');
+        }
+
         $options = array_merge($this->defaultOptions, $options);
 
         if (!empty($options['class'])) {
@@ -261,6 +275,8 @@ class Container
         }
 
         $service->setArguments($options['arguments']);
+        $service->setSingleton($options['singleton']);
+        $service->setReadOnly($options['read_only']);
 
         $this->services[$service->getName()] = $service;
     }
