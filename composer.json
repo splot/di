@@ -1,0 +1,23 @@
+{
+    "name": "splot/di",
+    "description": "Lightweight Dependency Injection Container by Splot Framework.",
+    "keywords": ["di", "ioc", "dependency", "container"],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Michał Dudek",
+            "email": "michal@michaldudek.pl"
+        }
+    ],
+    "require": {
+        "php": ">=5.3.3",
+        "michaldudek/foundation": ">=0.9",
+        "symfony/yaml": ">=2.1,<3.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Splot\\DependencyInjection\\Tests\\": "tests/",
+            "Splot\\DependencyInjection\\": "src/"
+        }
+    }
+}

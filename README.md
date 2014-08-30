@@ -1,4 +1,4 @@
-di
-==
+Splot Dependency Injection Container
+============
 
-Dependency Injection Container by Splot Framework.
+Lightweight Dependency Injection Container by Splot Framework.

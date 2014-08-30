@@ -1,0 +1,14 @@
+parameters:
+    debug: true
+    debug.relative: %debug%
+    name: di
+    name.prefixed: lib.%name%
+    vendor: splot
+    full_name: %vendor%.%name.prefixed%.lib
+    version: 2
+    authors:
+        - Michał Dudek
+        - John Doe
+        - %name% Salvatore
+    authors.compact: ["Michał Dudek", "John Doe", "%name% Salvatore"]
+    simple_service.class: Splot\DependencyInjection\Tests\TestFixtures\SimpleService
