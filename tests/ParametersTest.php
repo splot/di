@@ -68,6 +68,16 @@ class ParametersTest extends \PHPUnit_Framework_TestCase
         ), $container->getParameter('deep'));
     }
 
+    public function testResolvingUndefinedParameters() {
+        $container = new Container();
+
+        $container->setParameter('name', 'splot');
+        $container->setParameter('version', 0.5);
+        $container->setParameter('full_name', '%name% v.%version% - (%alpha%)');
+
+        $this->assertEquals('splot v.0.5 - (%alpha%)', $container->getParameter('full_name'));
+    }
+
     public function testLoadingFromYaml() {
         $container = new Container();
         $container->loadFromFile(__DIR__ .'/fixtures/parameters.yml');

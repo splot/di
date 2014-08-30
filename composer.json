@@ -11,7 +11,7 @@
     ],
     "require": {
         "php": ">=5.3.3",
-        "michaldudek/foundation": ">=0.9",
+        "michaldudek/foundation": ">=0.9.1",
         "symfony/yaml": ">=2.1,<3.0"
     },
     "autoload": {

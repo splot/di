@@ -1,14 +1,20 @@
 <?php
 namespace Splot\DependencyInjection;
 
+use MD\Foundation\Debug\Debugger;
 use MD\Foundation\Exceptions\InvalidFileException;
 use MD\Foundation\Exceptions\NotImplementedException;
 use MD\Foundation\Exceptions\NotFoundException;
 
 use Symfony\Component\Yaml\Yaml;
 
+use Splot\DependencyInjection\Definition\ClosureService;
+use Splot\DependencyInjection\Definition\ObjectService;
+use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
+use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
+use Splot\DependencyInjection\Resolver\ServicesResolver;
 
 class Container
 {
@@ -19,6 +25,23 @@ class Container
      * @var array
      */
     protected $parameters = array();
+
+    /**
+     * Set of all services.
+     * 
+     * @var array
+     */
+    protected $services = array();
+
+    /**
+     * Default service options.
+     * 
+     * @var array
+     */
+    protected $defaultOptions = array(
+        'class' => '',
+        'arguments' => array()
+    );
 
     /**
      * List of all loaded files to prevent double loading.
@@ -38,36 +61,78 @@ class Container
      * Constructor.
      */
     public function __construct() {
+        $this->parametersResolver = new ParametersResolver($this);
+        $this->servicesResolver = new ServicesResolver($this, $this->parametersResolver);
+
         // register itself
-        /*
         $this->set('container', $this, array(
             'read_only' => true,
             'aliases' => array('service_container', 'services_container', 'di_container')
         ));
-        */
     }
 
-    // not type hinting $object to function for backward compatibility
-    // last 2 arguments are deprecated
-    public function set($name, $object, $options, $singleton = true) {
+    /**
+     * Set a service by passing an object instance.
+     *
+     * Also accepts closures which will be treated as factories.
+     * 
+     * @param string  $name      Name of the service.
+     * @param object|closure $object Object to be set as a service or a closure that returns the service.
+     * @param array   $options   [optional] Array of options for the service definition.
+     * @param boolean $singleton Deprecated.
+     */
+    public function set($name, $object, $options = array(), $singleton = true) {
         // for backward compatibility
         $options = is_array($options) ? $options : array('read_only' => $options, 'singleton' => $singleton);
 
-        throw new NotImplementedException();
+        $service = Debugger::getType($object) === 'closure'
+            ? new ClosureService($name, $object)
+            : new ObjectService($name, $object);
+
+        $this->addService($service, $options);
     }
 
+    /**
+     * Register a service with the given name and options.
+     * 
+     * @param  string $name    Name of the service.
+     * @param  array|string $options Array of options for the service definition or a string with name
+     *                               of a class to instantiate.
+     */
     public function register($name, $options) {
         // if $options is a string then treat it as a class name
         $options = is_array($options) ? $options : array('class' => $options);
-        throw new NotImplementedException();
+        $this->addService(new Service($name), $options);
     }
 
+    /**
+     * Retrieves a service with the given name.
+     * 
+     * @param  string $name Name of the service to retrieve.
+     * @return object
+     *
+     * @throws ServiceNotFoundException When could not find a service with the given name.
+     */
     public function get($name) {
-        throw new NotImplementedException();
+        $name = mb_strtolower($name);
+
+        if (!$this->has($name)) {
+            throw new ServiceNotFoundException('Requested undefined service "'. $name .'".');
+        }
+
+        $service = $this->services[$name];
+
+        return $this->servicesResolver->resolve($service);
     }
 
+    /**
+     * Checks if the given service is registered.
+     * 
+     * @param  string  $name Name of the service.
+     * @return boolean
+     */
     public function has($name) {
-        throw new NotImplementedException();
+        return isset($this->services[mb_strtolower((string)$name)]);
     }
 
     public function dump() {
@@ -99,7 +164,7 @@ class Container
             throw new ParameterNotFoundException('Requested undefined parameter "'. $name .'".');
         }
 
-        return $this->getParametersResolver()->resolve($this->parameters[$name]);
+        return $this->parametersResolver->resolve($this->parameters[$name]);
     }
 
     /**
@@ -118,7 +183,7 @@ class Container
      * @return array
      */
     public function dumpParameters() {
-        return $this->getParametersResolver()->resolve($this->parameters);
+        return $this->parametersResolver->resolve($this->parameters);
     }
 
     /**
@@ -172,23 +237,32 @@ class Container
             }
         }
 
-        // @todo load services definitions
+        // load services
+        if (isset($definitions['services'])) {
+            foreach($definitions['services'] as $name => $options) {
+                $this->register($name, $options);
+            }
+        }
 
         return true;
     }
 
     /**
-     * Gets a parameters resolver.
-     *
-     * Any calls to parameters resolver should always go through this getter to ensure lazy instantiation of it.
+     * Add a service definition and decorate it with options.
      * 
-     * @return ParametersResolver
+     * @param Service $service Service definition.
+     * @param array   $options [optional] Array of options.
      */
-    protected function getParametersResolver() {
-        if (!isset($this->parametersResolver)) {
-            $this->parametersResolver = new ParametersResolver($this);
+    protected function addService(Service $service, array $options = array()) {
+        $options = array_merge($this->defaultOptions, $options);
+
+        if (!empty($options['class'])) {
+            $service->setClass($options['class']);
         }
-        return $this->parametersResolver;
+
+        $service->setArguments($options['arguments']);
+
+        $this->services[$service->getName()] = $service;
     }
 
 }

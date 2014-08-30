@@ -1,9 +1,9 @@
 <?php
 namespace Splot\DependencyInjection\Exceptions;
 
-use LogicException;
+use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 
-class PrivateServiceException extends LogicException
+class PrivateServiceException extends ServiceNotFoundException
 {
 
     
