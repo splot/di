@@ -11,6 +11,7 @@ use Symfony\Component\Yaml\Yaml;
 use Splot\DependencyInjection\Definition\ClosureService;
 use Splot\DependencyInjection\Definition\ObjectService;
 use Splot\DependencyInjection\Definition\Service;
+use Splot\DependencyInjection\Exceptions\CircularReferenceException;
 use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
 use Splot\DependencyInjection\Exceptions\ReadOnlyException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
@@ -52,6 +53,13 @@ class Container
      * @var array
      */
     protected $loadedFiles = array();
+
+    /**
+     * Array used to store which services are currently resolving in order to detect circular references.
+     * 
+     * @var array
+     */
+    protected $loading = array();
 
     /**
      * Parameters resolver.
@@ -119,6 +127,7 @@ class Container
      * @return object
      *
      * @throws ServiceNotFoundException When could not find a service with the given name.
+     * @throws CircularReferenceException When 
      */
     public function get($name) {
         $name = mb_strtolower($name);
@@ -127,9 +136,23 @@ class Container
             throw new ServiceNotFoundException('Requested undefined service "'. $name .'".');
         }
 
-        $service = $this->services[$name];
+        // if this service is already on the loading list then it means there's a circular reference somewhere
+        if (isset($this->loading[$name])) {
+            $loadingServices = implode(', ', array_keys($this->loading));
+            $this->loading = array();
+            throw new CircularReferenceException('Circular reference detected during loading of chained services '. $loadingServices .'. Referenced service: "'. $name .'".');
+        }
 
-        return $this->servicesResolver->resolve($service);
+        // mark this service as being currently loaded
+        $this->loading[$name] = true;
+
+        $service = $this->services[$name];
+        $instance = $this->servicesResolver->resolve($service);
+
+        // if loaded successfully then remove it from loading array
+        unset($this->loading[$name]);
+
+        return $instance;
     }
 
     /**

@@ -194,7 +194,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $container->setParameter('debug', true);
         $container->register('simple', $this->simpleServiceClass);
         $container->register('parametrized_service', array(
-            'class' => 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService',
+            'class' => $this->parametrizedServiceClass,
             'arguments' => array(
                 '@simple',
                 '%name%.parametrized_optional',
@@ -215,7 +215,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $container->register('simple', $this->simpleServiceClass);
         $container->register('simple_service.defined', $this->simpleServiceClass);
         $container->register('parametrized_service', array(
-            'class' => 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService',
+            'class' => $this->parametrizedServiceClass,
             'arguments' => array(
                 '@simple',
                 '%name%.parametrized_optional',
@@ -237,7 +237,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $container->setParameter('debug', true);
         $container->register('simple', $this->simpleServiceClass);
         $container->register('parametrized_service', array(
-            'class' => 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService',
+            'class' => $this->parametrizedServiceClass,
             'arguments' => array(
                 '@simple',
                 '%name%',
@@ -268,6 +268,64 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(5, $parametrizedTwo->version);
         $this->assertNull($parametrizedOne->not_existent);
         $this->assertNotNull($parametrizedTwo->not_existent);
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\CircularReferenceException
+     */
+    public function testDetectingCircularReference() {
+        $container = new Container();
+        $container->register('argumented', array(
+            'class' => $this->argumentedServiceClass,
+            'arguments' => array(
+                '@argumented.sub1',
+                '@argumented.sub2'
+            )
+        ));
+        $container->register('argumented.sub1', array(
+            'class' => $this->argumentedServiceClass,
+            'arguments' => array(
+                '@argumented.sub1.1',
+                '@argumented.sub2'
+            )
+        ));
+
+        $container->register('argumented.sub2', array(
+            'class' => $this->argumentedServiceClass,
+            'arguments' => array(
+                '@argumented.sub1.1'
+            )
+        ));
+
+        $container->register('argumented.sub1.1', array(
+            'class' => $this->argumentedServiceClass,
+            'arguments' => array(
+                '@argumented'
+            )
+        ));
+
+        $container->get('argumented');
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\CircularReferenceException
+     */
+    public function testDetectingCircularReferenceInClosures() {
+        $container = new Container();
+        $container->set('argumented', function($c) {
+            return new ArgumentedService($c->get('argumented.sub1'), $c->get('argumented.sub2'));
+        });
+        $container->set('argumented.sub1', function($c) {
+            return new ArgumentedService($c->get('argumented.sub1.1'), $c->get('argumented.sub2'));
+        });
+        $container->set('argumented.sub2', function($c) {
+            return new ArgumentedService($c->get('argumented.sub1.1'));
+        });
+        $container->set('argumented.sub1.1', function($c) {
+            return new ArgumentedService($c->get('argumented'));
+        });
+
+        $container->get('argumented');
     }
 
 }

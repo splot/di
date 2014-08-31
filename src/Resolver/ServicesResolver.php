@@ -7,6 +7,7 @@ use ReflectionClass;
 use Splot\DependencyInjection\Definition\ClosureService;
 use Splot\DependencyInjection\Definition\ObjectService;
 use Splot\DependencyInjection\Definition\Service;
+use Splot\DependencyInjection\Exceptions\CircularReferenceException;
 use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
@@ -90,6 +91,8 @@ class ServicesResolver
         // get constructor arguments
         try {
             $arguments = $this->resolveArguments($service->getArguments());
+        } catch(CircularReferenceException $e) {
+            throw $e;
         } catch(Exception $e) {
             throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because one or more of its arguments could not be resolved: '. $e->getMessage(), 0, $e);
         }
