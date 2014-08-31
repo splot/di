@@ -1,8 +1,6 @@
 <?php
 namespace Splot\DependencyInjection\Tests\TestFixtures;
 
-use StdClass;
-
 use Splot\DependencyInjection\Tests\TestFixtures\SimpleService;
 
 class ParametrizedService
@@ -18,7 +16,7 @@ class ParametrizedService
 
     public $debug;
 
-    public function __construct(SimpleService $simple, $name, $version, $debug, StdClass $not_existent = null) {
+    public function __construct(SimpleService $simple, $name, $version, $debug, SimpleService $not_existent = null) {
         $this->simple = $simple;
         $this->name = $name;
         $this->version = $version;

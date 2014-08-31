@@ -1,10 +1,14 @@
 <?php
 namespace Splot\DependencyInjection\Resolver;
 
+use Exception;
+use ReflectionClass;
+
 use Splot\DependencyInjection\Definition\ClosureService;
 use Splot\DependencyInjection\Definition\ObjectService;
 use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Exceptions\InvalidServiceException;
+use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Container;
 
@@ -66,25 +70,94 @@ class ServicesResolver
         }
 
         // class can be defined as a parameter
-        $class = $this->parametersResolver->resolve($service->getClass());
+        try {
+            $class = $this->parametersResolver->resolve($service->getClass());
+        } catch(ParameterNotFoundException $e) {
+            throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because class parameter '. $class .' could not be found.', 0, $e);
+        }
 
         if (!class_exists($class)) {
             throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because class '. $class .' was not found.');
         }
 
+        // we need some more information about the class, so we need to use reflection
+        $classReflection = new ReflectionClass($class);
+
+        if (!$classReflection->isInstantiable()) {
+            throw new InvalidServiceException('The class '. $class .' for service "'. $service->getName() .'" is not instantiable!');
+        }
+
         // get constructor arguments
-        $arguments = $this->resolveArguments($service);
+        try {
+            $arguments = $this->resolveArguments($service->getArguments());
+        } catch(Exception $e) {
+            throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because one or more of its arguments could not be resolved: '. $e->getMessage(), 0, $e);
+        }
 
         // if no constructor arguments then simply instantiate the class using "new" keyword
         if (empty($arguments)) {
             return new $class();
         }
+
+        // otherwise we need to instantiate using reflection
+        $instance = $classReflection->newInstanceArgs($arguments);
+
+        return $instance;
     }
 
-    protected function resolveArguments(Service $service) {
-        $arguments = $service->getArguments();
-        // @todo
-        return $arguments;
+    /**
+     * Resolves an argument to an actual argument that can be used with services instances.
+     * 
+     * @param  string|array $argument Argument(s) to be resolved.
+     * @return mixed
+     */
+    protected function resolveArguments($argument) {
+        // make it work recursively for arrays
+        if (is_array($argument)) {
+            foreach($argument as $i => $arg) {
+                $argument[$i] = $this->resolveArguments($arg);
+            }
+            return $argument;
+        }
+
+        // if string then resolve possible parameters
+        if (is_string($argument)) {
+            $argument = $this->parametersResolver->resolve($argument);
+        }
+
+        // and maybe it's a reference to another service?
+        $argument = $this->resolveServiceLink($argument);
+
+        return $argument;
+    }
+
+    /**
+     * Resolves a link to a service into an actual service instance.
+     * 
+     * @param  string $link Service link to be resolved.
+     * @return string|object|null
+     */
+    protected function resolveServiceLink($link) {
+        // only strings are linkable
+        if (!is_string($link)) {
+            return $link;
+        }
+
+        // if doesn't start with a @ then definetely not a link
+        if (strpos($link, '@') !== 0) {
+            return $link;
+        }
+
+        $name = mb_substr($link, 1);
+        $optional = strrpos($name, '?') === mb_strlen($name) - 1;
+        $name = $optional ? mb_substr($name, 0, mb_strlen($name) - 1) : $name;
+
+        // if no such service but its optional link then just return null
+        if (!$this->container->has($name) && $optional) {
+            return null;
+        }
+
+        return $this->container->get($name);
     }
 
 }

@@ -37,7 +37,7 @@ services:
 
     parametrized_service.compact:
         class: Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService
-        arguments: ["@simple_service", "%name%.parametrized.compact", "%version%", "%debug%", "@simple_service.undefined?"]
+        arguments: ["@simple_service", "%name%.parametrized", "%version%", "%debug%", "@simple_service.undefined?"]
 
     called_service:
         class: %called_service.class%

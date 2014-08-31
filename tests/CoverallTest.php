@@ -17,6 +17,9 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
 
     protected $container;
 
+    private $simpleServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService';
+    private $parametrizedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService';
+
     public function setUp() {
         $this->container = new Container();
         $this->container->loadFromFile(__DIR__ .'/fixtures/coverall.yml');
@@ -52,15 +55,13 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
     }
 
     public function testSimpleService() {
-        $this->assertTrue($this->container->get('simple_service') instanceof SimpleService);
-        $this->assertTrue($this->container->get('simple_service.full') instanceof SimpleService);
-        $this->assertTrue($this->container->get('simple_service.dynamic') instanceof SimpleService);
-        $this->assertTrue($this->container->get('simple_service.dynamic.full') instanceof SimpleService);
+        $this->assertInstanceOf($this->simpleServiceClass, $this->container->get('simple_service'));
+        $this->assertInstanceOf($this->simpleServiceClass, $this->container->get('simple_service.full'));
+        $this->assertInstanceOf($this->simpleServiceClass, $this->container->get('simple_service.dynamic'));
+        $this->assertInstanceOf($this->simpleServiceClass, $this->container->get('simple_service.dynamic.full'));
     }
 
     public function testParametrizedService() {
-        $this->markTestIncomplete();
-        
         // parametrized via constructor injector
         // test both full and compact arguments
         foreach(array(
@@ -68,9 +69,9 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
             'parametrized_service.compact'
         ) as $name) {
             $parametrizedService = $this->container->get($name);
-            $this->assertTrue($parametrizedService instanceof ParametrizedService);
+            $this->assertInstanceOf($this->parametrizedServiceClass, $parametrizedService);
             $this->assertSame($this->container->get('simple_service'), $parametrizedService->simple);
-            $this>assertEquals('di.parametrized', $parametrizedService->name);
+            $this->assertEquals('di.parametrized', $parametrizedService->name);
             $this->assertEquals(2, $parametrizedService->version);
             $this->assertEquals(true, $parametrizedService->debug);
             $this->assertNull($parametrizedService->not_existent);
@@ -123,8 +124,6 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
      * @expectedException \Splot\DependencyInjection\Exceptions\ReadOnlyException
      */
     public function testReadOnlyService() {
-        $this->markTestIncomplete();
-        
         $this->container->register('simple_service.read_only', 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService');
     }
 
