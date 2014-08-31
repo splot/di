@@ -177,6 +177,7 @@ class Container
      */
     public function setParameter($name, $value) {
         $this->parameters[mb_strtolower($name)] = $value;
+        $this->clearInternalCaches();
     }
 
     /**
@@ -302,6 +303,15 @@ class Container
         $service->setReadOnly($options['read_only']);
 
         $this->services[$service->getName()] = $service;
+
+        $this->clearInternalCaches();
+    }
+
+    /**
+     * Clear all internal caches.
+     */
+    protected function clearInternalCaches() {
+        $this->servicesResolver->clearInternalCache();
     }
 
 }

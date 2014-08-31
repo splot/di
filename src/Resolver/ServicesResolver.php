@@ -11,6 +11,7 @@ use Splot\DependencyInjection\Exceptions\CircularReferenceException;
 use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
+use Splot\DependencyInjection\Resolver\ServiceLink;
 use Splot\DependencyInjection\Container;
 
 class ServicesResolver
@@ -29,6 +30,13 @@ class ServicesResolver
      * @var ParametersResolver
      */
     protected $parametersResolver;
+
+    /**
+     * Cache of closures that instantiate services.
+     * 
+     * @var array
+     */
+    protected $instantiateClosuresCache = array();
 
     /**
      * Constructor.
@@ -59,12 +67,24 @@ class ServicesResolver
     }
 
     /**
+     * Clears internal cache.
+     */
+    public function clearInternalCache() {
+        $this->instantiateClosuresCache = array();   
+    }
+
+    /**
      * Instantiate the service and perform constructor injection if necessary.
      * 
      * @param  Service $service Service definition.
      * @return object
      */
     protected function instantiateService(Service $service) {
+        // if already resolved the definition, then just call the resolved closure factory
+        if (isset($this->instantiateClosuresCache[$service->getName()])) {
+            return call_user_func_array($this->instantiateClosuresCache[$service->getName()], array());
+        }
+
         // deal with closure services
         if ($service instanceof ClosureService) {
             return call_user_func_array($service->getClosure(), array($this->container));
@@ -88,37 +108,48 @@ class ServicesResolver
             throw new InvalidServiceException('The class '. $class .' for service "'. $service->getName() .'" is not instantiable!');
         }
 
-        // get constructor arguments
+
+        // parse constructor arguments
         try {
-            $arguments = $this->resolveArguments($service->getArguments());
-        } catch(CircularReferenceException $e) {
-            throw $e;
+            $arguments = $this->parseArguments($service->getArguments());
         } catch(Exception $e) {
             throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because one or more of its arguments could not be resolved: '. $e->getMessage(), 0, $e);
         }
 
-        // if no constructor arguments then simply instantiate the class using "new" keyword
-        if (empty($arguments)) {
-            return new $class();
-        }
+        $resolver = $this;
 
-        // otherwise we need to instantiate using reflection
-        $instance = $classReflection->newInstanceArgs($arguments);
+        $instantiateClosure = function() use ($class, $classReflection, $arguments, $resolver) {
+            // if no constructor arguments then simply instantiate the class using "new" keyword
+            if (empty($arguments)) {
+                return new $class();
+            }
 
-        return $instance;
+            // do resolve all service links in the arguments
+            $arguments = $resolver->resolveArguments($arguments);
+
+            // otherwise we need to instantiate using reflection
+            $instance = $classReflection->newInstanceArgs($arguments);
+            return $instance;
+        };
+
+        // cache this closure
+        $this->instantiateClosuresCache[$service->getName()] = $instantiateClosure;
+
+        // and finally call it
+        return call_user_func_array($instantiateClosure, array());
     }
 
     /**
-     * Resolves an argument to an actual argument that can be used with services instances.
+     * Parses arguments definition by resolving parameters and parsing service links.
      * 
-     * @param  string|array $argument Argument(s) to be resolved.
+     * @param  string|array $argument Argument(s) to be parsed.
      * @return mixed
      */
-    protected function resolveArguments($argument) {
+    protected function parseArguments($argument) {
         // make it work recursively for arrays
         if (is_array($argument)) {
             foreach($argument as $i => $arg) {
-                $argument[$i] = $this->resolveArguments($arg);
+                $argument[$i] = $this->parseArguments($arg);
             }
             return $argument;
         }
@@ -129,18 +160,18 @@ class ServicesResolver
         }
 
         // and maybe it's a reference to another service?
-        $argument = $this->resolveServiceLink($argument);
+        $argument = $this->parseServiceLink($argument);
 
         return $argument;
     }
 
     /**
-     * Resolves a link to a service into an actual service instance.
+     * Parses a link to a service.
      * 
-     * @param  string $link Service link to be resolved.
-     * @return string|object|null
+     * @param  string $link Service link to be parsed.
+     * @return string|object
      */
-    protected function resolveServiceLink($link) {
+    protected function parseServiceLink($link) {
         // only strings are linkable
         if (!is_string($link)) {
             return $link;
@@ -155,12 +186,38 @@ class ServicesResolver
         $optional = strrpos($name, '?') === mb_strlen($name) - 1;
         $name = $optional ? mb_substr($name, 0, mb_strlen($name) - 1) : $name;
 
+        return new ServiceLink($name, $optional);
+
         // if no such service but its optional link then just return null
         if (!$this->container->has($name) && $optional) {
             return null;
         }
 
         return $this->container->get($name);
+    }
+
+    protected function resolveArguments($argument) {
+        // make it work recursively for arrays
+        if (is_array($argument)) {
+            foreach($argument as $i => $arg) {
+                $argument[$i] = $this->resolveArguments($arg);
+            }
+            return $argument;
+        }
+
+        // for reals only service links need to be resolved
+        if ($argument instanceof ServiceLink) {
+            $serviceName = $argument->getName();
+
+            // if no such service, but its optional then just return null
+            if (!$this->container->has($serviceName) && $argument->isOptional()) {
+                return null;
+            }
+
+            return $this->container->get($serviceName);
+        }
+
+        return $argument;
     }
 
 }
