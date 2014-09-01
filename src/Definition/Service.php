@@ -17,7 +17,7 @@ class Service
     protected $instance;
 
     public function __construct($name) {
-        $this->name = mb_strtolower($name);
+        $this->name = $name;
     }
 
     public function getName() {
@@ -41,7 +41,7 @@ class Service
     }
 
     public function setSingleton($singleton) {
-        return $this->singleton = $singleton;
+        $this->singleton = $singleton;
     }
 
     public function getSingleton() {

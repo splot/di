@@ -82,7 +82,7 @@ class ServicesResolver
     protected function instantiateService(Service $service) {
         // if already resolved the definition, then just call the resolved closure factory
         if (isset($this->instantiateClosuresCache[$service->getName()])) {
-            return call_user_func_array($this->instantiateClosuresCache[$service->getName()], array());
+            return call_user_func($this->instantiateClosuresCache[$service->getName()]);
         }
 
         // deal with closure services
@@ -136,7 +136,7 @@ class ServicesResolver
         $this->instantiateClosuresCache[$service->getName()] = $instantiateClosure;
 
         // and finally call it
-        return call_user_func_array($instantiateClosure, array());
+        return call_user_func($instantiateClosure);
     }
 
     /**
