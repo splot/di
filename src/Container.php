@@ -130,7 +130,7 @@ class Container
      * @throws CircularReferenceException When 
      */
     public function get($name) {
-        if (!$this->has($name)) {
+        if (!isset($this->services[$name])) {
             throw new ServiceNotFoundException('Requested undefined service "'. $name .'".');
         }
 
