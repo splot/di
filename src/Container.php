@@ -130,8 +130,6 @@ class Container
      * @throws CircularReferenceException When 
      */
     public function get($name) {
-        $name = mb_strtolower($name);
-
         if (!$this->has($name)) {
             throw new ServiceNotFoundException('Requested undefined service "'. $name .'".');
         }
@@ -162,7 +160,7 @@ class Container
      * @return boolean
      */
     public function has($name) {
-        return isset($this->services[mb_strtolower((string)$name)]);
+        return isset($this->services[$name]);
     }
 
     public function dump() {
@@ -176,7 +174,7 @@ class Container
      * @param mixed $value Value of the parameter.
      */
     public function setParameter($name, $value) {
-        $this->parameters[mb_strtolower($name)] = $value;
+        $this->parameters[$name] = $value;
         $this->clearInternalCaches();
     }
 
@@ -189,8 +187,6 @@ class Container
      * @throws ParameterNotFoundException When there is no such parameter.
      */
     public function getParameter($name) {
-        $name = mb_strtolower((string)$name);
-
         if (!$this->hasParameter($name)) {
             throw new ParameterNotFoundException('Requested undefined parameter "'. $name .'".');
         }
@@ -205,7 +201,7 @@ class Container
      * @return bool
      */
     public function hasParameter($name) {
-        return isset($this->parameters[mb_strtolower((string)$name)]);
+        return isset($this->parameters[$name]);
     }
 
     /**
