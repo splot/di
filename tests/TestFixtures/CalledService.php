@@ -12,7 +12,9 @@ class CalledService
 
     protected $simple;
 
-    protected $optionallySimple;
+    protected $optionallySimple = null;
+
+    protected $calledService;
 
     public function __construct($name, $version) {
         $this->name = $name;
@@ -37,7 +39,9 @@ class CalledService
 
     public function setSimple(SimpleService $simple, SimpleService $optionallySimple = null) {
         $this->simple = $simple;
-        $this->optionallySimple = $optionallySimple;
+        if ($optionallySimple) {
+            $this->setOptionallySimple($optionallySimple);
+        }
     }
 
     public function getSimple() {
@@ -50,6 +54,14 @@ class CalledService
 
     public function getOptionallySimple() {
         return $this->optionallySimple;
+    }
+
+    public function setCalledService(CalledService $calledService) {
+        $this->calledService = $calledService;
+    }
+
+    public function getCalledService() {
+        return $this->calledService;
     }
 
 }

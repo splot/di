@@ -61,7 +61,24 @@ class ServicesResolver
         }
 
         $instance = $this->instantiateService($service);
+        // setting the instance already here will help circular reference via setter injection working
+        // but only for singleton services
         $service->setInstance($instance);
+
+        // if there are any method calls, then call them
+        $methodCalls = $service->getMethodCalls();
+        foreach($methodCalls as $call) {
+            try {
+                $arguments = $this->parseArguments($call['arguments']);
+                $arguments = $this->resolveArguments($arguments);
+            } catch(CircularReferenceException $e) {
+                throw $e;
+            } catch(Exception $e) {
+                throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because arguments of method "'. $call['method'] .'" could not be resolved: '. $e->getMessage(), 0, $e);
+            }
+
+            call_user_func_array(array($instance, $call['method']), $arguments);
+        }
 
         return $instance;
     }
@@ -90,6 +107,11 @@ class ServicesResolver
             return call_user_func_array($service->getClosure(), array($this->container));
         }
 
+        // deal with object services
+        if ($service instanceof ObjectService) {
+            return $service->getInstance();
+        }
+
         // class can be defined as a parameter
         try {
             $class = $this->parametersResolver->resolve($service->getClass());
@@ -107,7 +129,6 @@ class ServicesResolver
         if (!$classReflection->isInstantiable()) {
             throw new InvalidServiceException('The class '. $class .' for service "'. $service->getName() .'" is not instantiable!');
         }
-
 
         // parse constructor arguments
         try {
@@ -127,8 +148,9 @@ class ServicesResolver
             // do resolve all service links in the arguments
             $arguments = $resolver->resolveArguments($arguments);
 
-            // otherwise we need to instantiate using reflection
+            // we need to instantiate using reflection
             $instance = $classReflection->newInstanceArgs($arguments);
+
             return $instance;
         };
 
@@ -187,13 +209,6 @@ class ServicesResolver
         $name = $optional ? mb_substr($name, 0, mb_strlen($name) - 1) : $name;
 
         return new ServiceLink($name, $optional);
-
-        // if no such service but its optional link then just return null
-        if (!$this->container->has($name) && $optional) {
-            return null;
-        }
-
-        return $this->container->get($name);
     }
 
     protected function resolveArguments($argument) {

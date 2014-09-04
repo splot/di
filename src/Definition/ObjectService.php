@@ -8,15 +8,23 @@ use Splot\DependencyInjection\Definition\Service;
 class ObjectService extends Service
 {
 
+    private $resolved = false;
+
     public function __construct($name, $object) {
         parent::__construct($name);
         $this->instance = $object;
         $this->class = Debugger::getType($object);
     }
 
+    public function getInstance() {
+        $this->resolved = true;
+        return $this->instance;
+    }
+
     public function getSingleton() {
-        // object services need to always be singletons
-        return true;
+        // object service is not a singleton until it has been resolved,
+        // so that setter injection can happen once and only once
+        return $this->resolved;
     }
 
 }

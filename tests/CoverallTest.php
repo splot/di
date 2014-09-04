@@ -79,11 +79,9 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
     }
 
     public function testCalledService() {
-        $this->markTestIncomplete();
-        
         $calledService = $this->container->get('called_service');
         $simpleService = $this->container->get('simple_service');
-        $this->assertTrue($this->calledService instanceof CalledService);
+        $this->assertTrue($calledService instanceof CalledService);
         $this->assertEquals('di.overwritten', $calledService->getName());
         $this->assertEquals(3, $calledService->getVersion());
         $this->assertSame($simpleService, $calledService->getSimple());

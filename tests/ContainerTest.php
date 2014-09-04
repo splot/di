@@ -18,6 +18,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     private $simpleServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService';
     private $argumentedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ArgumentedService';
     private $parametrizedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService';
+    private $calledServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\CalledService';
 
     public function testSettingInstanceService() {
         $container = new Container();
@@ -227,7 +228,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
 
         $parametrized = $container->get('parametrized_service');
         $this->assertNotNull($parametrized->not_existent);
-        $this->assertTrue($parametrized->not_existent instanceof SimpleService);
+        $this->assertInstanceOf($this->simpleServiceClass, $parametrized->not_existent);
     }
 
     public function testRegisteringWithConstructorInjectionAndNotSingleton() {
@@ -259,8 +260,8 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
 
         $this->assertNotSame($parametrizedOne, $parametrizedTwo);
 
-        $this->assertTrue($parametrizedOne->simple instanceof SimpleService);
-        $this->assertTrue($parametrizedTwo->simple instanceof SimpleService);
+        $this->assertInstanceOf($this->simpleServiceClass, $parametrizedOne->simple);
+        $this->assertInstanceOf($this->simpleServiceClass, $parametrizedTwo->simple);
         $this->assertSame($parametrizedOne->simple, $parametrizedTwo->simple);
         $this->assertEquals('splot', $parametrizedOne->name);
         $this->assertEquals('split', $parametrizedTwo->name);
@@ -268,6 +269,179 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(5, $parametrizedTwo->version);
         $this->assertNull($parametrizedOne->not_existent);
         $this->assertNotNull($parametrizedTwo->not_existent);
+    }
+
+    public function testRegisteringWithSetterInjection() {
+        $container = new Container();
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setName', array('splot.called')),
+                array('setVersion', array(3))
+            )
+        ));
+
+        $calledService = $container->get('called');
+        $this->assertEquals('splot.called', $calledService->getName());
+        $this->assertEquals(3, $calledService->getVersion());
+    }
+
+    public function testRegisteringWithParametersInSetterInjection() {
+        $container = new Container();
+        $container->setParameter('name', 'di');
+        $container->setParameter('version', 4);
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setName', array('%name%.overwritten')),
+                array('setVersion', array('%version%'))
+            )
+        ));
+
+        $calledService = $container->get('called');
+        $this->assertEquals('di.overwritten', $calledService->getName());
+        $this->assertEquals(4, $calledService->getVersion());
+    }
+
+    public function testRegisteringWithServiceAndParametersSetterInjection() {
+        $container = new Container();
+        $container->setParameter('name', 'called_simple');
+        $container->setParameter('version', 5);
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setName', array('%name%')),
+                array('setVersion', array('%version%')),
+                array('setSimple', array('@simple'))
+            )
+        ));
+
+        $calledService = $container->get('called');
+        $this->assertEquals('called_simple', $calledService->getName());
+        $this->assertEquals(5, $calledService->getVersion());
+        $this->assertInstanceOf($this->simpleServiceClass, $calledService->getSimple());
+    }
+
+    public function testRegisteringWithOptionalUndefinedServiceInSetterInjection() {
+        $container = new Container();
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setSimple', array('@simple', '@simple_nope?'))
+            )
+        ));
+
+        $calledService = $container->get('called');
+        $this->assertInstanceOf($this->simpleServiceClass, $calledService->getSimple());
+        $this->assertNull($calledService->getOptionallySimple());
+    }
+
+    public function testRegisteringWithOptionalDefinedServiceInSetterInjection() {
+        $container = new Container();
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('simple_nope', $this->simpleServiceClass);
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setSimple', array('@simple', '@simple_nope?'))
+            )
+        ));
+
+        $calledService = $container->get('called');
+        $this->assertInstanceOf($this->simpleServiceClass, $calledService->getSimple());
+        $this->assertInstanceOf($this->simpleServiceClass, $calledService->getOptionallySimple());
+    }
+
+    public function testRegisteringWithSetterInjectionAndNotSingletion() {
+        $container = new Container();
+        $container->setParameter('name', 'setter');
+        $container->setParameter('version', 1);
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setName', array('%name%')),
+                array('setVersion', array('%version%')),
+                array('setSimple', array('@simple', '@simple_nope?'))
+            ),
+            'singleton' => false
+        ));
+
+        $calledOne = $container->get('called');
+
+        // alter the container a bit
+        $container->setParameter('name', 'di');
+        $container->setParameter('version', 3);
+        $container->register('simple_nope', $this->simpleServiceClass);
+
+        $calledTwo = $container->get('called');
+
+        $this->assertNotSame($calledOne, $calledTwo);
+        $this->assertInstanceOf($this->calledServiceClass, $calledOne);
+        $this->assertInstanceOf($this->calledServiceClass, $calledTwo);
+        $this->assertEquals('setter', $calledOne->getName());
+        $this->assertEquals('di', $calledTwo->getName());
+        $this->assertEquals(1, $calledOne->getVersion());
+        $this->assertEquals(3, $calledTwo->getVersion());
+        $this->assertInstanceOf($this->simpleServiceClass, $calledOne->getSimple());
+        $this->assertInstanceOf($this->simpleServiceClass, $calledTwo->getSimple());
+        $this->assertSame($calledOne->getSimple(), $calledTwo->getSimple());
+        $this->assertNull($calledOne->getOptionallySimple());
+        $this->assertNotNull($calledTwo->getOptionallySimple());
+    }
+
+    public function testClosureServiceWithSetterInjection() {
+        $container = new Container();
+        $container->set('called', function($c) {
+            return new CalledService('splot', 2);
+        }, array(
+            'call' => array(
+                array('setName', array('di')),
+                array('setVersion', array(3))
+            ),
+        ));
+
+        $calledService = $container->get('called');
+        $this->assertEquals('di', $calledService->getName());
+        $this->assertEquals(3, $calledService->getVersion());
+    }
+
+    public function testObjectServiceWithSetterInjection() {
+        $container = new Container();
+        $called = new CalledService('splot', 2);
+        $container->set('called', $called, array(
+            'call' => array(
+                array('setName', array('di')),
+                array('setVersion', array(3))
+            ),
+        ));
+
+        $calledService = $container->get('called');
+        $this->assertSame($called, $calledService);
+        $this->assertEquals('di', $calledService->getName());
+        $this->assertEquals(3, $calledService->getVersion());
+    }
+
+    public function testSetterInjectionInvalidArgumentsFormat() {
+        $container = new Container();
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setName', 'di') // make argument 2 an array if not an array
+            )
+        ));
+
+        $calledService = $container->get('called');
+        $this->assertEquals('di', $calledService->getName());
     }
 
     /**
@@ -326,6 +500,37 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         });
 
         $container->get('argumented');
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\CircularReferenceException
+     */
+    public function testCircularReferenceInSetterInjection() {
+        $container = new Container();
+        $container->register('setter', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 0),
+            'call' => array(
+                array('setCalledService', array('@setter.sub1'))
+            )
+        ));
+        $container->register('setter.sub1', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 1),
+            'call' => array(
+                array('setCalledService', array('@setter.sub2'))
+            )
+        ));
+
+        $container->register('setter.sub2', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setCalledService', array('@setter'))
+            )
+        ));
+
+        $container->get('setter');
     }
 
 }

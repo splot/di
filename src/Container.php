@@ -12,6 +12,7 @@ use Splot\DependencyInjection\Definition\ClosureService;
 use Splot\DependencyInjection\Definition\ObjectService;
 use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Exceptions\CircularReferenceException;
+use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
 use Splot\DependencyInjection\Exceptions\ReadOnlyException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
@@ -43,6 +44,7 @@ class Container
     protected $defaultOptions = array(
         'class' => '',
         'arguments' => array(),
+        'call' => array(),
         'singleton' => true,
         'read_only' => false
     );
@@ -297,6 +299,20 @@ class Container
         $service->setArguments($options['arguments']);
         $service->setSingleton($options['singleton']);
         $service->setReadOnly($options['read_only']);
+
+        if (is_array($options['call']) && !empty($options['call'])) {
+            foreach($options['call'] as $call) {
+                if (!isset($call[0]) || !is_string($call[0])) {
+                    throw new InvalidServiceException('Invalid method calls definition in definition of service "'. $service->getName() .'".');
+                }
+
+                $arguments = isset($call[1])
+                    ? (is_array($call[1])
+                        ? $call[1] : array($call[1])
+                    ) : array();
+                $service->addMethodCall($call[0], $arguments);
+            }
+        }
 
         $this->services[$service->getName()] = $service;
 

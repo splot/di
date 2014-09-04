@@ -10,6 +10,8 @@ class Service
 
     protected $arguments = array();
 
+    protected $methodCalls = array();
+
     protected $singleton = true;
 
     protected $readOnly = false;
@@ -38,6 +40,17 @@ class Service
 
     public function getArguments() {
         return $this->arguments;
+    }
+
+    public function addMethodCall($method, array $arguments = array()) {
+        $this->methodCalls[] = array(
+            'method' => $method,
+            'arguments' => $arguments
+        );
+    }
+
+    public function getMethodCalls() {
+        return $this->methodCalls;
     }
 
     public function setSingleton($singleton) {

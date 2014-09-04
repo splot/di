@@ -41,7 +41,7 @@ services:
 
     called_service:
         class: %called_service.class%
-        arguments: ["%name", "%version%"]
+        arguments: ["%name%", "%version%"]
         call:
             - [setName, ["%name%.overwritten"]]
             - [setVersion, [3]]
