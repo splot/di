@@ -7,9 +7,11 @@ use ReflectionClass;
 use Splot\DependencyInjection\Definition\ClosureService;
 use Splot\DependencyInjection\Definition\ObjectService;
 use Splot\DependencyInjection\Definition\Service;
+use Splot\DependencyInjection\Exceptions\AbstractServiceException;
 use Splot\DependencyInjection\Exceptions\CircularReferenceException;
 use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
+use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServiceLink;
 use Splot\DependencyInjection\Container;
@@ -60,6 +62,14 @@ class ServicesResolver
             return $instance;
         }
 
+        // cannot resolve an abstract service
+        if ($service->isAbstract()) {
+            throw new AbstractServiceException('Could not instantiate abstract service "'. $service->getName() .'".');
+        }
+
+        // if the service is extending any other service then resolve all parent definitions
+        $service = $this->resolveHierarchy($service);
+
         $instance = $this->instantiateService($service);
         // setting the instance already here will help circular reference via setter injection working
         // but only for singleton services
@@ -88,6 +98,31 @@ class ServicesResolver
      */
     public function clearInternalCache() {
         $this->instantiateClosuresCache = array();   
+    }
+
+    protected function resolveHierarchy(Service $originalService) {
+        if (!$originalService->isExtending()) {
+            return $originalService;
+        }
+
+        $parentName = $this->parametersResolver->resolve($originalService->getExtends());
+
+        try {
+            $parent = $this->container->getDefinition($parentName);
+        } catch(ServiceNotFoundException $e) {
+            throw new InvalidServiceException('Service "'. $originalService->getName() .'" tried to extend an unexisting service "'. $parentName .'".');
+        }
+
+        if ($parent instanceof ObjectService) {
+            throw new InvalidServiceException('Service "'. $originalService->getName() .'" cannot extend an object service "'. $parent->getName() .'".');
+        }
+
+        $parent = $this->resolveHierarchy($parent);
+
+        $service = clone $originalService;
+        $service->applyParent($parent);
+
+        return $service;
     }
 
     /**

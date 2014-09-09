@@ -6,7 +6,7 @@ use Splot\DependencyInjection\Tests\TestFixtures\CalledService;
 class ExtendedService extends CalledService
 {
 
-    public $subname;
+    protected $subname;
 
     protected $isExtended = false;
 
@@ -19,8 +19,16 @@ class ExtendedService extends CalledService
         $this->isExtended = $extended;
     }
 
-    public function isExtended() {
+    public function getExtended() {
         return $this->isExtended;
+    }
+
+    public function isExtended() {
+        return $this->getExtended();
+    }
+
+    public function getSubname() {
+        return $this->subname;
     }
 
 }

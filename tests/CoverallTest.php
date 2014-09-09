@@ -18,6 +18,7 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
     protected $container;
 
     private $simpleServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService';
+    private $extendedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService';
     private $parametrizedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService';
 
     public function setUp() {
@@ -89,14 +90,14 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
     }
 
     public function testExtendedService() {
-        $this->markTestIncomplete();
-        
         $extendedService = $this->container->get('extended_service');
-        $this->assertTrue($extendedService instanceof ExtendedService);
+
+        $this->assertInstanceOf($this->extendedServiceClass, $extendedService);
         $this->assertNotSame($this->container->get('called_service'), $extendedService);
+
         $this->assertEquals('di.overwritten', $extendedService->getName());
         $this->assertEquals('extended', $extendedService->getSubname());
-        $this->assertEquals(2, $extendedService->getVersion());
+        $this->assertEquals(3, $extendedService->getVersion());
         $this->assertSame($this->container->get('simple_service'), $extendedService->getOptionallySimple());
         $this->assertTrue($extendedService->getExtended());
     }
@@ -129,8 +130,6 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
      * @expectedException \Splot\DependencyInjection\Exceptions\AbstractServiceException
      */
     public function testAbstractService() {
-        $this->markTestIncomplete();
-        
         $this->container->get('simple_service.abstract');
     }
 

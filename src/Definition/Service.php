@@ -12,7 +12,11 @@ class Service
 
     protected $methodCalls = array();
 
+    protected $extends = null;
+
     protected $singleton = true;
+
+    protected $abstract = false;
 
     protected $readOnly = false;
 
@@ -53,6 +57,18 @@ class Service
         return $this->methodCalls;
     }
 
+    public function setExtends($extends) {
+        $this->extends = $extends;
+    }
+
+    public function getExtends() {
+        return $this->extends;
+    }
+
+    public function isExtending() {
+        return $this->getExtends();
+    }
+
     public function setSingleton($singleton) {
         $this->singleton = $singleton;
     }
@@ -63,6 +79,18 @@ class Service
 
     public function isSingleton() {
         return $this->getSingleton();
+    }
+
+    public function setAbstract($abstract) {
+        $this->abstract = $abstract;
+    }
+
+    public function getAbstract() {
+        return $this->abstract;
+    }
+
+    public function isAbstract() {
+        return $this->getAbstract();
     }
 
     public function setReadOnly($readOnly) {
@@ -87,6 +115,26 @@ class Service
             return;
         }
         $this->instance = $instance;
+    }
+
+    public function applyParent(Service $parent) {
+        if (!$this->getClass()) {
+            $this->setClass($parent->getClass());
+        }
+
+        $arguments = $this->getArguments();
+        if (empty($arguments)) {
+            $this->setArguments($parent->getArguments());
+        }
+
+        // prepend parent method calls
+        foreach($parent->getMethodCalls() as $methodCall) {
+            array_unshift($this->methodCalls, $methodCall);
+        }
+    }
+
+    public function __clone() {
+        $this->instance = null;
     }
 
 }

@@ -42,9 +42,11 @@ class Container
      * @var array
      */
     protected $defaultOptions = array(
-        'class' => '',
+        'class' => null,
+        'extends' => null,
         'arguments' => array(),
         'call' => array(),
+        'abstract' => false,
         'singleton' => true,
         'read_only' => false
     );
@@ -163,6 +165,22 @@ class Container
      */
     public function has($name) {
         return isset($this->services[$name]);
+    }
+
+    /**
+     * Returns the definition of a service.
+     * 
+     * @param  string $name Name of the service which definition we want to retrieve.
+     * @return Service
+     *
+     * @throws ServiceNotFoundException When could not find a service with the given name.
+     */
+    public function getDefinition($name) {
+        if (!isset($this->services[$name])) {
+            throw new ServiceNotFoundException('Requested definition of an undefined service "'. $name .'".');
+        }
+
+        return $this->services[$name];
     }
 
     public function dump() {
@@ -292,12 +310,18 @@ class Container
 
         $options = array_merge($this->defaultOptions, $options);
 
+        if (empty($options['class']) && empty($options['extends']) && !$service instanceof ClosureService && !$service instanceof ObjectService) {
+            throw new InvalidServiceException('Cannot define service "'. $service->getName() .'" without specifying its class.');
+        }
+
         if (!empty($options['class'])) {
             $service->setClass($options['class']);
         }
 
         $service->setArguments($options['arguments']);
+        $service->setExtends($options['extends']);
         $service->setSingleton($options['singleton']);
+        $service->setAbstract($options['abstract']);
         $service->setReadOnly($options['read_only']);
 
         if (is_array($options['call']) && !empty($options['call'])) {

@@ -19,6 +19,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     private $argumentedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ArgumentedService';
     private $parametrizedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService';
     private $calledServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\CalledService';
+    private $extendedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService';
 
     public function testSettingInstanceService() {
         $container = new Container();
@@ -49,6 +50,16 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
             'class' => 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService'
         ));
         $this->assertInstanceOf($this->simpleServiceClass, $container->get('simple'));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringServiceWithoutClassName() {
+        $container = new Container();
+        $container->register('simple', array(
+            'arguments' => array('nope')
+        ));
     }
 
     public function testRegisterByClassParameter() {
@@ -531,6 +542,207 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         ));
 
         $container->get('setter');
+    }
+
+    public function testExtendingService() {
+        $container = new Container();
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setName', array('splot.overwritten')),
+                array('setVersion', 3)
+            )
+        ));
+        $container->register('extended', array(
+            'class' => $this->extendedServiceClass,
+            'extends' => 'called',
+            'arguments' => array('splot.ext', 18, 'extended'),
+            'call' => array(
+                array('setSimple', array('@simple')),
+                array('setExtended', array(true))
+            )
+        ));
+
+        $simpleService = $container->get('simple');
+        $calledService = $container->get('called');
+        $extendedService = $container->get('extended');
+        $this->assertInstanceOf($this->extendedServiceClass, $extendedService);
+        $this->assertNotSame($extendedService, $calledService);
+
+        $this->assertEquals('splot.overwritten', $extendedService->getName());
+        $this->assertEquals(3, $extendedService->getVersion());
+        $this->assertSame($simpleService, $extendedService->getSimple());
+        $this->assertTrue($extendedService->getExtended());
+    }
+
+    public function testChainExtendingService() {
+        $container = new Container();
+        $container->register('root', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('root', 1)
+        ));
+        $container->register('first', array(
+            'extends' => 'root'
+        ));
+        $container->register('second', array(
+            'extends' => 'first',
+            'arguments' => array('second', 2)
+        ));
+        $container->register('third', array(
+            'extends' => 'second',
+            'call' => array(
+                array('setVersion', 3)
+            )
+        ));
+        $container->register('fourth', array(
+            'extends' => 'third',
+            'call' => array(
+                array('setName', 'fourth')
+            )
+        ));
+
+        $root = $container->get('root');
+        $this->assertInstanceOf($this->calledServiceClass, $root);
+
+        $first = $container->get('first');
+        $this->assertInstanceOf($this->calledServiceClass, $first);
+        $this->assertNotSame($first, $root);
+
+        $second = $container->get('second');
+        $this->assertInstanceOf($this->calledServiceClass, $second);
+        $this->assertNotSame($second, $first);
+        $this->assertEquals('second', $second->getName());
+        $this->assertEquals(2, $second->getVersion());
+
+        $third = $container->get('third');
+        $this->assertInstanceOf($this->calledServiceClass, $third);
+        $this->assertNotSame($third, $second);
+        $this->assertEquals('second', $third->getName());
+        $this->assertEquals(3, $third->getVersion());
+
+        $fourth = $container->get('fourth');
+        $this->assertInstanceOf($this->calledServiceClass, $fourth);
+        $this->assertNotSame($fourth, $third);
+        $this->assertEquals('fourth', $fourth->getName());
+        $this->assertEquals(3, $fourth->getVersion());
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testExtendingObjectService() {
+        $container = new Container();
+        $container->set('simple', new SimpleService());
+        $container->register('simple.extended', array(
+            'extends' => 'simple'
+        ));
+        $container->get('simple.extended');
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testExtendingUndefinedService() {
+        $container = new Container();
+        $container->register('simple.extending', array(
+            'class' => $this->simpleServiceClass,
+            'extends' => 'simple.undefined'
+        ));
+        $container->get('simple.extending');
+    }
+
+    public function testExtendingServiceBeforeRegisteringIt() {
+        $container = new Container();
+        $container->register('simple.extending', array(
+            'class' => $this->simpleServiceClass,
+            'extends' => 'simple.lazy'
+        ));
+        $container->register('simple.lazy', $this->simpleServiceClass);
+
+        $extendingService = $container->get('simple.extending');
+        $this->assertInstanceOf($this->simpleServiceClass, $extendingService);
+    }
+
+    public function testExtendingServiceWithoutClass() {
+        $container = new Container();
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setName', array('splot.overwritten')),
+                array('setVersion', 3)
+            )
+        ));
+        $container->register('extended', array(
+            'extends' => 'called',
+            'call' => array(
+                array('setSimple', array('@simple'))
+            )
+        ));
+
+        $simpleService = $container->get('simple');
+        $calledService = $container->get('called');
+        $extendedService = $container->get('extended');
+        $this->assertInstanceOf($this->calledServiceClass, $extendedService);
+        $this->assertNotSame($calledService, $extendedService);
+
+        $this->assertEquals('splot.overwritten', $extendedService->getName());
+        $this->assertEquals(3, $extendedService->getVersion());
+        $this->assertNull($calledService->getSimple());
+        $this->assertSame($simpleService, $extendedService->getSimple());
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\AbstractServiceException
+     */
+    public function testGettingAbstractService() {
+        $container = new Container();
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'abstract' => true
+        ));
+
+        $container->get('simple');
+    }
+
+    public function testExtendingAbstractService() {
+        $container = new Container();
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'abstract' => true,
+            'call' => array(
+                array('setName', array('splot.overwritten')),
+                array('setVersion', 3)
+            )
+        ));
+        $container->register('extended', array(
+            'class' => $this->extendedServiceClass,
+            'extends' => 'called',
+            'arguments' => array('splot.ext', 18, 'extended'),
+            'call' => array(
+                array('setSimple', array('@simple')),
+                array('setExtended', array(true))
+            )
+        ));
+
+        $extendedService = $container->get('extended');
+        $this->assertInstanceOf($this->extendedServiceClass, $extendedService);
+    }
+
+    public function testExtendingParametrizedService() {
+        $container = new Container();
+        $container->setParameter('extend_service', 'simple');
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('extended', array(
+            'extends' => '%extend_service%'
+        ));
+
+        $this->assertInstanceOf($this->simpleServiceClass, $container->get('extended'));
     }
 
 }
