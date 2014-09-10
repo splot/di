@@ -38,6 +38,10 @@ class ParametersResolver
             }
             return $parameter;
         }
+
+        if (!is_string($parameter)) {
+            return $parameter;
+        }
         
         // only bother with resolving when there are at least two %
         $firstDelimeter = strpos($parameter, '%');

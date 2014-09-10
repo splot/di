@@ -13,6 +13,10 @@ class ClosureService extends Service
         $this->closure = $closure;
     }
 
+    public function setClass($class) {
+        // noop
+    }
+
     public function getClosure() {
         return $this->closure;
     }

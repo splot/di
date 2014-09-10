@@ -9,6 +9,7 @@ use MD\Foundation\Exceptions\NotFoundException;
 use Symfony\Component\Yaml\Yaml;
 
 use Splot\DependencyInjection\Definition\ClosureService;
+use Splot\DependencyInjection\Definition\FactoryService;
 use Splot\DependencyInjection\Definition\ObjectService;
 use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Exceptions\CircularReferenceException;
@@ -45,6 +46,9 @@ class Container
         'class' => null,
         'extends' => null,
         'arguments' => array(),
+        'factory_service' => null,
+        'factory_method' => null,
+        'factory_arguments' => array(),
         'call' => array(),
         'abstract' => false,
         'singleton' => true,
@@ -301,6 +305,7 @@ class Container
      * @param array   $options [optional] Array of options.
      *
      * @throws ReadOnlyException When trying to overwrite a service that is marked as read only.
+     * @throws InvalidServiceException When something is wrong with the service definition.
      */
     protected function addService(Service $service, array $options = array()) {
         // trying to overwrite previously defined read only service?
@@ -308,18 +313,16 @@ class Container
             throw new ReadOnlyException('Could not overwrite a read only service "'. $service->getName() .'".');
         }
 
-        $options = array_merge($this->defaultOptions, $options);
+        $options = $this->expandAndVerifyOptions($options, $service);
 
-        if (empty($options['class']) && empty($options['extends']) && !$service instanceof ClosureService && !$service instanceof ObjectService) {
-            throw new InvalidServiceException('Cannot define service "'. $service->getName() .'" without specifying its class.');
+        // if factory then replace the service instance
+        if ($options['factory_service']) {
+            $service = new FactoryService($service->getName(), $options['factory_service'], $options['factory_method'], $options['factory_arguments']);
         }
 
-        if (!empty($options['class'])) {
-            $service->setClass($options['class']);
-        }
-
+        $service->setExtends($options['extends']); // needs to be called before setting the class
+        $service->setClass($options['class']);
         $service->setArguments($options['arguments']);
-        $service->setExtends($options['extends']);
         $service->setSingleton($options['singleton']);
         $service->setAbstract($options['abstract']);
         $service->setReadOnly($options['read_only']);
@@ -341,6 +344,33 @@ class Container
         $this->services[$service->getName()] = $service;
 
         $this->clearInternalCaches();
+    }
+
+    protected function expandAndVerifyOptions(array $options, Service $service) {
+        // if options is an array with at least 2 numeric keys then treat it as a very compact factory definition
+        if (isset($options[0]) && isset($options[1]) && (count($options) === 2 || count($options) === 3)) {
+            $options = array('factory' => $options);
+        }
+
+        // if defined factory key then expand it
+        if (isset($options['factory'])) {
+            if (!isset($options['factory'][0]) || !isset($options['factory'][1])) {
+                throw new InvalidServiceException('You have to specify factory service name and method when registering a service built from a factory for "'. $service->getName() .'".');
+            }
+            $options['factory_service'] = $options['factory'][0];
+            $options['factory_method'] = $options['factory'][1];
+            $options['factory_arguments'] = isset($options['factory'][2])
+                ? (is_array($options['factory'][2]) ? $options['factory'][2] : array($options['factory'][2]))
+                : array();
+        }
+
+        $options = array_merge($this->defaultOptions, $options);
+
+        if ($options['factory_service'] && empty($options['factory_method'])) {
+            throw new InvalidServiceException('Cannot define service built from factory without specifying factory method for "'. $service->getName() .'".');
+        }
+
+        return $options;
     }
 
     /**

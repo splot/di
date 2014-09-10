@@ -1,6 +1,8 @@
 <?php
 namespace Splot\DependencyInjection\Definition;
 
+use Splot\DependencyInjection\Exceptions\InvalidServiceException;
+
 class Service
 {
 
@@ -31,6 +33,10 @@ class Service
     }
 
     public function setClass($class) {
+        if (empty($class) && !$this->isExtending()) {
+            throw new InvalidServiceException('Cannot define service "'. $this->getName() .'" without specifying its class.');
+        }
+        
         $this->class = $class;
     }
 

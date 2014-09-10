@@ -17,6 +17,8 @@ parameters:
     extended_service.class: Splot\DependencyInjection\Tests\TestFixtures\ExtendedService
     collection_service.class: Splot\DependencyInjection\Tests\TestFixtures\CollectionService
     simple_factory.class: Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory
+    named_factory.class: Splot\DependencyInjection\Tests\TestFixtures\NamedFactory
+    named_factory.product.class: Splot\DependencyInjection\Tests\TestFixtures\NamedProduct
 
 services:
     simple_service: Splot\DependencyInjection\Tests\TestFixtures\SimpleService
@@ -104,35 +106,34 @@ services:
 #        notify:
 #            - ["collection_service", "addService", ["@", "item_two"]]
 #
-#    simple_factory: %simple_factory.class%
-#
-#    simple_factory.product.one:
-#        class: %simple_service.class% # if class defined then verify the result
-#        factory: ["@simple_factory", "get"]
-#
-#    simple_factory.product.two:
-#        factory: ["@simple_factory", "get"]
-#
-#    simple_factory.product.three:
-#        factory: ["@simple_factory", "get"]
-#        #abstract: true -- error, cannot be abstract - check when building
-#        notify:
-#            - ["collection_service", "addService", ["@", "factory_product"]]
-#
-#    simple_factory.product.not_singleton:
-#        factory: ["@simple_factory", "get"]
-#        singleton: false
-#
-#    named_factory: %named_factory.class%
-#
-#    named_factory.verbose_product:
-#        factory_service: named_factory
-#        factory_method: provide
-#        factory_arguments:
-#            - verbose
-#
-#    named_factory.product.compact: ["@named_factory", "provide", ["compact"]]
-#
+    simple_factory: %simple_factory.class%
+
+    simple_factory.product.one:
+        class: %simple_service.class% # void
+        factory: ["@simple_factory", "get"]
+
+    simple_factory.product.two:
+        factory: ["@simple_factory", "get"]
+
+    simple_factory.product.three:
+        factory: ["@simple_factory", "get"]
+        notify:
+            - ["collection_service", "addService", ["@", "factory_product"]]
+
+    simple_factory.product.not_singleton:
+        factory: ["@simple_factory", "get"]
+        singleton: false
+
+    named_factory: %named_factory.class%
+
+    named_factory.verbose_product:
+        factory_service: named_factory
+        factory_method: provide
+        factory_arguments:
+            - verbose
+
+    named_factory.product.compact: ["@named_factory", "provide", ["compact"]]
+
 #    # e.g. how to register events
 #    event_manager:
 #        class: Splot\Framework\EventManager\EventManager

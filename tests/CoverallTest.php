@@ -7,8 +7,8 @@ use Splot\DependencyInjection\Tests\TestFixtures\CalledService;
 use Splot\DependencyInjection\Tests\TestFixtures\CollectionService;
 use Splot\DependencyInjection\Tests\TestFixtures\ExtendedService;
 use Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService;
-use Splot\DependencyInjection\Tests\TestFixtures\NamedFactoryService;
-use Splot\DependencyInjection\Tests\TestFixtures\NamedFactoryProduct;
+use Splot\DependencyInjection\Tests\TestFixtures\NamedFactory;
+use Splot\DependencyInjection\Tests\TestFixtures\NamedProduct;
 use Splot\DependencyInjection\Tests\TestFixtures\SimpleService;
 use Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory;
 
@@ -20,6 +20,7 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
     private $simpleServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService';
     private $extendedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService';
     private $parametrizedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService';
+    private $namedProductClass = 'Splot\DependencyInjection\Tests\TestFixtures\NamedProduct';
 
     public function setUp() {
         $this->container = new Container();
@@ -51,7 +52,9 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
             'called_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\CalledService',
             'extended_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService',
             'collection_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\CollectionService',
-            'simple_factory.class' => 'Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory'
+            'simple_factory.class' => 'Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory',
+            'named_factory.class' => 'Splot\DependencyInjection\Tests\TestFixtures\NamedFactory',
+            'named_factory.product.class' => 'Splot\DependencyInjection\Tests\TestFixtures\NamedProduct'
         ), $this->container->dumpParameters());
     }
 
@@ -178,8 +181,6 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
     }
 
     public function testSimpleFactoryService() {
-        $this->markTestIncomplete();
-        
         $this->assertTrue($this->container->get('simple_factory') instanceof SimpleFactory);
         $this->assertTrue($this->container->get('simple_factory.product.one') instanceof SimpleService);
         $this->assertTrue($this->container->get('simple_factory.product.two') instanceof SimpleService);
@@ -187,30 +188,22 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
     }
 
     public function testFactorySingleton() {
-        $this->markTestIncomplete();
-        
         $this->assertSame($this->container->get('simple_factory.product.two'), $this->container->get('simple_factory.product.two'));
     }
 
     public function testFactoryNotSingleton() {
-        $this->markTestIncomplete();
-        
         $this->assertNotSame($this->container->get('simple_factory.product.not_singleton'), $this->container->get('simple_factory.product.not_singleton'));
     }
 
     public function testVerboseFactory() {
-        $this->markTestIncomplete();
-        
         $service = $this->container->get('named_factory.verbose_product');
-        $this->assertTrue($service instanceof NamedFactoryProduct);
+        $this->assertInstanceOf($this->namedProductClass, $service);
         $this->assertEquals('verbose', $service->getName());
     }
 
     public function testCompactFactory() {
-        $this->markTestIncomplete();
-        
         $service = $this->container->get('named_factory.product.compact');
-        $this->assertTrue($service instanceof NamedFactoryProduct);
+        $this->assertInstanceOf($this->namedProductClass, $service);
         $this->assertEquals('compact', $service->getName());
     }
 

@@ -5,6 +5,7 @@ use Exception;
 use ReflectionClass;
 
 use Splot\DependencyInjection\Definition\ClosureService;
+use Splot\DependencyInjection\Definition\FactoryService;
 use Splot\DependencyInjection\Definition\ObjectService;
 use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Exceptions\AbstractServiceException;
@@ -100,6 +101,13 @@ class ServicesResolver
         $this->instantiateClosuresCache = array();   
     }
 
+    /**
+     * Resolve a hierarchy of services that extend other services definitions
+     * and return a final service definition (cloned original).
+     * 
+     * @param  Service $originalService Original service definition.
+     * @return Service
+     */
     protected function resolveHierarchy(Service $originalService) {
         if (!$originalService->isExtending()) {
             return $originalService;
@@ -113,7 +121,7 @@ class ServicesResolver
             throw new InvalidServiceException('Service "'. $originalService->getName() .'" tried to extend an unexisting service "'. $parentName .'".');
         }
 
-        if ($parent instanceof ObjectService) {
+        if ($parent instanceof ObjectService || $parent instanceof FactoryService) {
             throw new InvalidServiceException('Service "'. $originalService->getName() .'" cannot extend an object service "'. $parent->getName() .'".');
         }
 
@@ -145,6 +153,19 @@ class ServicesResolver
         // deal with object services
         if ($service instanceof ObjectService) {
             return $service->getInstance();
+        }
+
+        // deal with factory services
+        if ($service instanceof FactoryService) {
+            try {
+                $factoryServiceName = $this->parametersResolver->resolve($service->getFactoryService());
+                $factoryService = $this->container->get($factoryServiceName);
+                $factoryArguments = $this->parseArguments($service->getFactoryArguments());
+                $factoryArguments = $this->resolveArguments($factoryArguments);
+                return call_user_func_array(array($factoryService, $service->getFactoryMethod()), $factoryArguments);
+            } catch(Exception $e) {
+                throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" due to: '. $e->getMessage(), 0, $e);
+            }
         }
 
         // class can be defined as a parameter

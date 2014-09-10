@@ -7,6 +7,7 @@ use Splot\DependencyInjection\Tests\TestFixtures\ArgumentedService;
 use Splot\DependencyInjection\Tests\TestFixtures\CalledService;
 use Splot\DependencyInjection\Tests\TestFixtures\ExtendedService;
 use Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService;
+use Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory;
 use Splot\DependencyInjection\Tests\TestFixtures\SimpleService;
 
 /**
@@ -20,6 +21,9 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     private $parametrizedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService';
     private $calledServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\CalledService';
     private $extendedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService';
+    private $simpleFactoryClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory';
+    private $namedFactoryClass = 'Splot\DependencyInjection\Tests\TestFixtures\NamedFactory';
+    private $namedProductClass = 'Splot\DependencyInjection\Tests\TestFixtures\NamedProduct';
 
     public function testSettingInstanceService() {
         $container = new Container();
@@ -743,6 +747,104 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         ));
 
         $this->assertInstanceOf($this->simpleServiceClass, $container->get('extended'));
+    }
+
+    public function testRegisteringFactoryService() {
+        $container = new Container();
+        $container->register('factory', $this->simpleFactoryClass);
+        $container->register('factory.product', array(
+            'factory_service' => 'factory',
+            'factory_method' => 'get'
+        ));
+
+        $this->assertInstanceOf($this->simpleServiceClass, $container->get('factory.product'));
+    }
+
+    public function testRegisteringCompactFactoryService() {
+        $container = new Container();
+        $container->register('factory', $this->simpleFactoryClass);
+        $container->register('factory.product', array(
+            'factory' => array('factory', 'get')
+        ));
+
+        $this->assertInstanceOf($this->simpleServiceClass, $container->get('factory.product'));
+    }
+
+    public function testRegisteringSuperCompactFactoryService() {
+        $container = new Container();
+        $container->register('factory', $this->simpleFactoryClass);
+        $container->register('factory.product', array('factory', 'get'));
+
+        $this->assertInstanceOf($this->simpleServiceClass, $container->get('factory.product'));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringAbstractFactoryService() {
+        $container = new Container();
+        $container->register('factory', $this->simpleFactoryClass);
+        $container->register('factory.product', array(
+            'factory_service' => 'factory',
+            'factory_method' => 'get',
+            'abstract' => true
+        ));
+    }
+
+    public function testRegisteringSingletonFactoryService() {
+        $container = new Container();
+        $container->register('factory', $this->simpleFactoryClass);
+        $container->register('factory.product', array(
+            'factory_service' => 'factory',
+            'factory_method' => 'get'
+        ));
+
+        $first = $container->get('factory.product');
+        $second = $container->get('factory.product');
+        $this->assertNotNull($first);
+        $this->assertNotNull($second);
+        $this->assertSame($first, $second);
+    }
+
+    public function testRegisteringNotSingletonFactoryService() {
+        $container = new Container();
+        $container->register('factory', $this->simpleFactoryClass);
+        $container->register('factory.product', array(
+            'factory_service' => 'factory',
+            'factory_method' => 'get',
+            'singleton' => false
+        ));
+
+        $first = $container->get('factory.product');
+        $second = $container->get('factory.product');
+        $this->assertNotNull($first);
+        $this->assertNotNull($second);
+        $this->assertNotSame($first, $second);
+    }
+
+    public function testRegisteringFactoryServiceWithArguments() {
+        $container = new Container();
+        $container->register('named_factory', $this->namedFactoryClass);
+        $container->register('something', array(
+            'factory' => array('named_factory', 'provide', array('something'))
+        ));
+
+        $service = $container->get('something');
+        $this->assertInstanceOf($this->namedProductClass, $service);
+        $this->assertEquals('something', $service->getName());
+    }
+
+    public function testRegisteringFactoryServiceWithParametrizedArguments() {
+        $container = new Container();
+        $container->setParameter('named_factory', 'foreverandever');
+        $container->register('named_factory', $this->namedFactoryClass);
+        $container->register('something', array(
+            'factory' => array('named_factory', 'provide', array('%named_factory%.something'))
+        ));
+
+        $service = $container->get('something');
+        $this->assertInstanceOf($this->namedProductClass, $service);
+        $this->assertEquals('foreverandever.something', $service->getName());
     }
 
 }

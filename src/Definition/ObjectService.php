@@ -16,6 +16,10 @@ class ObjectService extends Service
         $this->class = Debugger::getType($object);
     }
 
+    public function setClass($class) {
+        // noop
+    }
+
     public function getInstance() {
         $this->resolved = true;
         return $this->instance;
