@@ -223,7 +223,7 @@ class ServicesResolver
      * @param  string|array $argument Argument(s) to be parsed.
      * @return mixed
      */
-    protected function parseArguments($argument) {
+    public function parseArguments($argument) {
         // make it work recursively for arrays
         if (is_array($argument)) {
             foreach($argument as $i => $arg) {
@@ -249,7 +249,7 @@ class ServicesResolver
      * @param  string $link Service link to be parsed.
      * @return string|object
      */
-    protected function parseServiceLink($link) {
+    public function parseServiceLink($link) {
         // only strings are linkable
         if (!is_string($link)) {
             return $link;
@@ -267,7 +267,7 @@ class ServicesResolver
         return new ServiceLink($name, $optional);
     }
 
-    protected function resolveArguments($argument) {
+    public function resolveArguments($argument) {
         // make it work recursively for arrays
         if (is_array($argument)) {
             foreach($argument as $i => $arg) {
