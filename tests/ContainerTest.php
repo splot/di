@@ -111,6 +111,13 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($container, $container->get('container'));
     }
 
+    public function testGettingItselfByAliases() {
+        $container = new Container();
+        $this->assertSame($container, $container->get('service_container'));
+        $this->assertSame($container, $container->get('services_container'));
+        $this->assertSame($container, $container->get('di_container'));
+    }
+
     /**
      * @expectedException \Splot\DependencyInjection\Exceptions\ReadOnlyException
      */
@@ -457,6 +464,43 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
 
         $calledService = $container->get('called');
         $this->assertEquals('di', $calledService->getName());
+    }
+
+    public function testRegisteringWithAliases() {
+        $container = new Container();
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'aliases' => array(
+                'simple_service',
+                'simplicity',
+                'justit'
+            )
+        ));
+
+        $simple = $container->get('simple');
+        $this->assertSame($simple, $container->get('simple_service'));
+        $this->assertSame($simple, $container->get('simplicity'));
+        $this->assertSame($simple, $container->get('justit'));
+    }
+
+    public function testRegisteringWithOneAlias() {
+        $container = new Container();
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'aliases' => 'simple_service'
+        ));
+
+        $this->assertSame($container->get('simple'), $container->get('simple_service'));
+    }
+
+    public function testRegisteringAliasService() {
+        $container = new Container();
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('simple_service', array(
+            'alias' => 'simple'
+        ));
+
+        $this->assertSame($container->get('simple'), $container->get('simple_service'));
     }
 
     /**

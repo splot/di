@@ -106,8 +106,6 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
     }
 
     public function testAliasedService() {
-        $this->markTestIncomplete();
-        
         $this->assertSame($this->container->get('aliased_service'), $this->container->get('aliased_service.alias'));
 
         $multiAliasService = $this->container->get('aliased_service.multi');

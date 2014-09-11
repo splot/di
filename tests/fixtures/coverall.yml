@@ -68,9 +68,9 @@ services:
             - aliased_service.multi.two
             - aliased_service.multi.three
 
-#    aliased_service.link:
-#        alias: simple_service
-#
+    aliased_service.link:
+        alias: simple_service
+
     simple_service.not_singleton:
         class: %simple_service.class%
         singleton: false

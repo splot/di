@@ -52,6 +52,8 @@ class Container
         'call' => array(),
         'abstract' => false,
         'singleton' => true,
+        'alias' => false,
+        'aliases' => array(),
         'read_only' => false
     );
 
@@ -315,6 +317,13 @@ class Container
 
         $options = $this->expandAndVerifyOptions($options, $service);
 
+        // if just an alias then link to aliased service
+        if ($options['alias']) {
+            $this->services[$service->getName()] = $this->getDefinition($options['alias']);
+            $this->clearInternalCaches();
+            return;
+        }
+
         // if factory then replace the service instance
         if ($options['factory_service']) {
             $service = new FactoryService($service->getName(), $options['factory_service'], $options['factory_method'], $options['factory_arguments']);
@@ -343,6 +352,14 @@ class Container
 
         $this->services[$service->getName()] = $service;
 
+        // also register for aliases
+        foreach($options['aliases'] as $alias) {
+            if ($this->has($alias)) {
+                throw new InvalidServiceException('Trying to overwrite a previously defined service with an alias "'. $alias .'" for "'. $service->getName() .'".');
+            }
+            $this->services[$alias] = $service;
+        }
+
         $this->clearInternalCaches();
     }
 
@@ -368,6 +385,10 @@ class Container
 
         if ($options['factory_service'] && empty($options['factory_method'])) {
             throw new InvalidServiceException('Cannot define service built from factory without specifying factory method for "'. $service->getName() .'".');
+        }
+
+        if (is_string($options['aliases'])) {
+            $options['aliases'] = array($options['aliases']);
         }
 
         return $options;
