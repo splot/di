@@ -22,6 +22,8 @@ class Service
 
     protected $readOnly = false;
 
+    protected $private = false;
+
     protected $instance;
 
     public function __construct($name) {
@@ -109,6 +111,18 @@ class Service
 
     public function isReadOnly() {
         return $this->getReadOnly();
+    }
+
+    public function setPrivate($private) {
+        $this->private = $private;
+    }
+
+    public function getPrivate() {
+        return $this->private;
+    }
+
+    public function isPrivate() {
+        return $this->getPrivate();
     }
 
     public function getInstance() {

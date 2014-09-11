@@ -504,6 +504,38 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @expectedException Splot\DependencyInjection\Exceptions\PrivateServiceException
+     */
+    public function testRegisteringPrivateService() {
+        $container = new Container();
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'private' => true
+        ));
+
+        $container->get('simple');
+    }
+
+    public function testRegisteringServiceWithPrivateDependency() {
+        $container = new Container();
+        $container->register('simple.private', array(
+            'class' => $this->simpleServiceClass,
+            'private' => true
+        ));
+        $container->register('parametrized', array(
+            'class' => $this->parametrizedServiceClass,
+            'arguments' => array(
+                '@simple.private',
+                'public',
+                1,
+                true
+            )
+        ));
+
+        $this->assertInstanceOf($this->parametrizedServiceClass, $container->get('parametrized'));
+    }
+
+    /**
      * @expectedException \Splot\DependencyInjection\Exceptions\CircularReferenceException
      */
     public function testDetectingCircularReference() {

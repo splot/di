@@ -83,14 +83,14 @@ services:
         class: %simple_service.class%
         abstract: true
 
-#    simple_service.private:
-#        class: %simple_service.class%
-#        private: true
-#
-#    parametrized_service.private_dependency:
-#        class: Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService
-#        arguments: ["@simple_service.private", "%name%.parametrized.compact", "%version%", "%debug%"]
-#
+    simple_service.private:
+        class: %simple_service.class%
+        private: true
+
+    parametrized_service.private_dependency:
+        class: Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService
+        arguments: ["@simple_service.private", "%name%.parametrized.compact", "%version%", "%debug%"]
+
 #    collection_service:
 #        class: %collection_service.class%
 #

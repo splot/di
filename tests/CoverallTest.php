@@ -138,14 +138,10 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
      * @expectedException \Splot\DependencyInjection\Exceptions\PrivateServiceException
      */
     public function testPrivateService() {
-        $this->markTestIncomplete();
-        
         $this->container->get('simple_service.private');
     }
 
     public function testPrivateDependency() {
-        $this->markTestIncomplete();
-        
         $service = $this->container->get('parametrized_service.private_dependency');
         $this->assertTrue($service instanceof ParametrizedService);
         $this->assertTrue($service->simple instanceof SimpleService);

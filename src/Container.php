@@ -15,6 +15,7 @@ use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Exceptions\CircularReferenceException;
 use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
+use Splot\DependencyInjection\Exceptions\PrivateServiceException;
 use Splot\DependencyInjection\Exceptions\ReadOnlyException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
@@ -54,6 +55,7 @@ class Container
         'singleton' => true,
         'alias' => false,
         'aliases' => array(),
+        'private' => false,
         'read_only' => false
     );
 
@@ -151,10 +153,17 @@ class Container
             throw new CircularReferenceException('Circular reference detected during loading of chained services '. $loadingServices .'. Referenced service: "'. $name .'".');
         }
 
+        // get service definition
+        $service = $this->services[$name];
+
+        if ($service->isPrivate() && empty($this->loading)) {
+            throw new PrivateServiceException('Requested private service "'. $name .'".');
+        }
+
         // mark this service as being currently loaded
         $this->loading[$name] = true;
 
-        $service = $this->services[$name];
+        // load this service
         $instance = $this->servicesResolver->resolve($service);
 
         // if loaded successfully then remove it from loading array
@@ -335,6 +344,7 @@ class Container
         $service->setSingleton($options['singleton']);
         $service->setAbstract($options['abstract']);
         $service->setReadOnly($options['read_only']);
+        $service->setPrivate($options['private']);
 
         if (is_array($options['call']) && !empty($options['call'])) {
             foreach($options['call'] as $call) {
