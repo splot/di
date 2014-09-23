@@ -58,6 +58,14 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\ServiceNotFoundException
+     */
+    public function testGettingUnregisteredService() {
+        $container = new Container();
+        $container->get('undefined');
+    }
+
+    /**
      * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
      */
     public function testRegisteringServiceWithoutClassName() {

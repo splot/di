@@ -15,9 +15,9 @@ class FactoryService extends Service
 
     public function __construct($name, $factoryService, $factoryMethod, array $factoryArguments = array()) {
         parent::__construct($name);
-        $this->factoryService = ltrim($factoryService, '@');
-        $this->factoryMethod = $factoryMethod;
-        $this->factoryArguments = $factoryArguments;
+        $this->setFactoryService($factoryService);
+        $this->setFactoryMethod($factoryMethod);
+        $this->setFactoryArguments($factoryArguments);
     }
 
     public function setClass($class) {
@@ -41,7 +41,7 @@ class FactoryService extends Service
     }
 
     public function setFactoryService($factoryService) {
-        $this->factoryService = $factoryService;
+        $this->factoryService = ltrim($factoryService, '@');
     }
 
     public function getFactoryService() {
