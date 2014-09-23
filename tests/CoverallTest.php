@@ -18,9 +18,11 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
     protected $container;
 
     private $simpleServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService';
+    private $simpleFactoryClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory';
     private $extendedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService';
     private $parametrizedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService';
     private $namedProductClass = 'Splot\DependencyInjection\Tests\TestFixtures\NamedProduct';
+    private $collectionServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\CollectionService';
 
     public function setUp() {
         $this->container = new Container();
@@ -143,15 +145,13 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
 
     public function testPrivateDependency() {
         $service = $this->container->get('parametrized_service.private_dependency');
-        $this->assertTrue($service instanceof ParametrizedService);
-        $this->assertTrue($service->simple instanceof SimpleService);
+        $this->assertInstanceOf($this->parametrizedServiceClass, $service);
+        $this->assertInstanceOf($this->simpleServiceClass, $service->simple);
     }
 
     public function testCollectionService() {
-        $this->markTestIncomplete();
-        
-        $service = $this->get('collection_service');
-        $this->assertTrue($service instanceof CollectionService);
+        $service = $this->container->get('collection_service');
+        $this->assertInstanceOf($this->collectionServiceClass, $service);
         $collection = $service->getServices();
         $this->assertCount(4, $collection);
         foreach(array(
@@ -161,7 +161,7 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
             'factory_product'
         ) as $name) {
             $this->assertArrayHasKey($name, $collection);
-            $this->assertTrue($collection[$name] instanceof SimpleService);
+            $this->assertInstanceOf($this->simpleServiceClass, $collection[$name]);
         }
     }
 
@@ -169,16 +169,14 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
      * @expectedException \Splot\DependencyInjection\Exceptions\PrivateServiceException
      */
     public function testCollectionPrivateService() {
-        $this->markTestIncomplete();
-        
         $this->container->get('collection_service.item_two');
     }
 
     public function testSimpleFactoryService() {
-        $this->assertTrue($this->container->get('simple_factory') instanceof SimpleFactory);
-        $this->assertTrue($this->container->get('simple_factory.product.one') instanceof SimpleService);
-        $this->assertTrue($this->container->get('simple_factory.product.two') instanceof SimpleService);
-        $this->assertTrue($this->container->get('simple_factory.product.three') instanceof SimpleService);
+        $this->assertInstanceOf($this->simpleFactoryClass, $this->container->get('simple_factory'));
+        $this->assertInstanceOf($this->simpleServiceClass, $this->container->get('simple_factory.product.one'));
+        $this->assertInstanceOf($this->simpleServiceClass, $this->container->get('simple_factory.product.two'));
+        $this->assertInstanceOf($this->simpleServiceClass, $this->container->get('simple_factory.product.three'));
     }
 
     public function testFactorySingleton() {

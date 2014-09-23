@@ -91,21 +91,21 @@ services:
         class: Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService
         arguments: ["@simple_service.private", "%name%.parametrized.compact", "%version%", "%debug%"]
 
-#    collection_service:
-#        class: %collection_service.class%
-#
-#    collection_service.item_one:
-#        class: %simple_service.class%
-#        notify:
-#            - ["collection_service", "addService", ["@", "item_one"]]
-#            - ["collection_service", "addService", ["@", "item_one.alias"]]
-#
-#    collection_service.item_two:
-#        class: %simple_service.class%
-#        private: true
-#        notify:
-#            - ["collection_service", "addService", ["@", "item_two"]]
-#
+    collection_service:
+        class: %collection_service.class%
+
+    collection_service.item_one:
+        class: %simple_service.class%
+        notify:
+            - ["collection_service", "addService", ["@", "item_one"]]
+            - ["collection_service", "addService", ["@", "item_one.alias"]]
+
+    collection_service.item_two:
+        class: %simple_service.class%
+        private: true
+        notify:
+            - ["collection_service", "addService", ["@", "item_two"]]
+
     simple_factory: %simple_factory.class%
 
     simple_factory.product.one:

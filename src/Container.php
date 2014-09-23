@@ -51,6 +51,7 @@ class Container
         'factory_method' => null,
         'factory_arguments' => array(),
         'call' => array(),
+        'notify' => array(),
         'abstract' => false,
         'singleton' => true,
         'alias' => false,
@@ -74,11 +75,25 @@ class Container
     protected $loading = array();
 
     /**
+     * Notification queue for services that should be notified before they have been registered.
+     * 
+     * @var array
+     */
+    protected $notifyQueue = array();
+
+    /**
      * Parameters resolver.
      * 
      * @var ParametersResolver
      */
     private $parametersResolver;
+
+    /**
+     * Services resolver.
+     * 
+     * @var ServicesResolver
+     */
+    private $servicesResolver;
 
     /**
      * Constructor.
@@ -346,6 +361,8 @@ class Container
         $service->setReadOnly($options['read_only']);
         $service->setPrivate($options['private']);
 
+        $this->services[$service->getName()] = $service;
+
         if (is_array($options['call']) && !empty($options['call'])) {
             foreach($options['call'] as $call) {
                 if (!isset($call[0]) || !is_string($call[0])) {
@@ -360,7 +377,61 @@ class Container
             }
         }
 
-        $this->services[$service->getName()] = $service;
+        // handle notifying other services about this service existence
+        if (is_array($options['notify']) && !empty($options['notify'])) {
+            foreach($options['notify'] as $notify) {
+                if (!isset($notify[0]) || !is_string($notify[0])) {
+                    throw new InvalidServiceException('Invalid service name given to notify about existence of "'. $service->getName() .'".');
+                }
+
+                $notifyServiceName = $notify[0];
+
+                if (!isset($notify[1]) || !is_string($notify[1])) {
+                    throw new InvalidServiceException('Invalid method name to call given to notify about existence of "'. $service->getName() .'".');
+                }
+
+                $notifyMethodName = $notify[1];
+
+                $arguments = isset($notify[2])
+                    ? (is_array($notify[2])
+                        ? $notify[2] : array($notify[2])
+                    ) : array();
+                $arguments = $this->servicesResolver->parseSelfInArgument($service, $arguments);
+
+                // if the service is already registered then add defined method call
+                if ($this->has($notifyServiceName)) {
+                    $notifyService = $this->services[$notifyServiceName];
+                    $notifyService->addMethodCall($notifyMethodName, $arguments);
+
+                    // if this service is already instantiated then call methods directly on it
+                    if ($notifyService->isInstantiated()) {
+                        $this->servicesResolver->callMethod($notifyService, array(
+                            'method' => $notifyMethodName,
+                            'arguments' => $arguments
+                        ));
+                    }
+
+                // if the service hasn't been registered yet then wait for it in a queue
+                } else {
+                    if (!isset($this->notifyQueue[$notifyServiceName])) {
+                        $this->notifyQueue[$notifyServiceName] = array();
+                    }
+                
+                    $this->notifyQueue[$notifyServiceName][] = array(
+                        'service' => $notifyServiceName,
+                        'method' => $notifyMethodName,
+                        'arguments' => $arguments
+                    );
+                }
+            }
+        }
+
+        // maybe there are some notifications already waiting for this service?
+        if (isset($this->notifyQueue[$service->getName()])) {
+            foreach($this->notifyQueue[$service->getName()] as $notify) {
+                $service->addMethodCall($notify['method'], $notify['arguments']);
+            }
+        }
 
         // also register for aliases
         foreach($options['aliases'] as $alias) {
@@ -368,6 +439,13 @@ class Container
                 throw new InvalidServiceException('Trying to overwrite a previously defined service with an alias "'. $alias .'" for "'. $service->getName() .'".');
             }
             $this->services[$alias] = $service;
+
+            // maybe there are some notifications waiting for this service alias?
+            if (isset($this->notifyQueue[$alias])) {
+                foreach($this->notifyQueue[$alias] as $notify) {
+                    $service->addMethodCall($notify['method'], $notify['arguments']);
+                }
+            }
         }
 
         $this->clearInternalCaches();

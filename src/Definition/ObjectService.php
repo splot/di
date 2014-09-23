@@ -20,6 +20,10 @@ class ObjectService extends Service
         // noop
     }
 
+    public function isInstantiated() {
+        return $this->resolved;
+    }
+
     public function getInstance() {
         $this->resolved = true;
         return $this->instance;

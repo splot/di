@@ -24,6 +24,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     private $simpleFactoryClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory';
     private $namedFactoryClass = 'Splot\DependencyInjection\Tests\TestFixtures\NamedFactory';
     private $namedProductClass = 'Splot\DependencyInjection\Tests\TestFixtures\NamedProduct';
+    private $collectionServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\CollectionService';
 
     public function testSettingInstanceService() {
         $container = new Container();
@@ -504,7 +505,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     }
 
     /**
-     * @expectedException Splot\DependencyInjection\Exceptions\PrivateServiceException
+     * @expectedException \Splot\DependencyInjection\Exceptions\PrivateServiceException
      */
     public function testRegisteringPrivateService() {
         $container = new Container();
@@ -921,6 +922,85 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $service = $container->get('something');
         $this->assertInstanceOf($this->namedProductClass, $service);
         $this->assertEquals('foreverandever.something', $service->getName());
+    }
+
+    public function testNotifyingAService() {
+        $container = new Container();
+        $container->register('collection', $this->collectionServiceClass);
+
+        foreach(array(
+            'one',
+            'two',
+            'three'
+        ) as $name) {
+            $container->register($name, array(
+                'class' => $this->simpleServiceClass,
+                'notify' => array(
+                    array('collection', 'addService', array('@', $name))
+                )
+            ));
+        }
+
+        $collection = $container->get('collection');
+        $this->assertCount(3, $collection->getServices());
+        $this->assertArrayHasKey('one', $collection->getServices());
+        $this->assertArrayHasKey('two', $collection->getServices());
+        $this->assertArrayHasKey('three', $collection->getServices());
+
+        $this->assertSame($collection->getService('one'), $container->get('one'));
+        $this->assertSame($collection->getService('two'), $container->get('two'));
+        $this->assertSame($collection->getService('three'), $container->get('three'));
+    }
+
+    public function testNotifyingNonExistentService() {
+        $container = new Container();
+        $container->register('collection', $this->collectionServiceClass);
+        $container->register('one', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('undefined', 'add', array('@')),
+                array('collection', 'addService', array('@', 'one'))
+            )
+        ));
+
+        $collection = $container->get('collection');
+        $this->assertCount(1, $collection->getServices());
+    }
+
+    public function testNotifyingServiceRegisteredLater() {
+        $container = new Container();
+        $container->register('one', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('lazy_collection', 'addService', array('@', 'one'))
+            )
+        ));
+
+        $oneService = $container->get('one');
+        $this->assertInstanceOf($this->simpleServiceClass, $oneService);
+
+        $container->register('lazy_collection', $this->collectionServiceClass);
+        $lazyCollection = $container->get('lazy_collection');
+        $this->assertCount(1, $lazyCollection->getServices());
+        $this->assertSame($oneService, $lazyCollection->getService('one'));
+    }
+
+    public function testNotifyExtraLazy() {
+        $container = new Container();
+        $container->register('collection', $this->collectionServiceClass);
+
+        $collection = $container->get('collection');
+        $this->assertCount(0, $collection->getServices());
+
+        $container->register('one', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('collection', 'addService', array('@', 'one'))
+            )
+        ));
+
+        $this->assertCount(1, $collection->getServices());
+        $this->assertSame($container->get('one'), $collection->getService('one'));
     }
 
 }

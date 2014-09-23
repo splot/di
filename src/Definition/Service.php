@@ -137,6 +137,10 @@ class Service
         $this->instance = $instance;
     }
 
+    public function isInstantiated() {
+        return isset($this->instance);
+    }
+
     public function applyParent(Service $parent) {
         if (!$this->getClass()) {
             $this->setClass($parent->getClass());

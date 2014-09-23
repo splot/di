@@ -2,6 +2,7 @@
 namespace Splot\DependencyInjection\Resolver;
 
 use Exception;
+use RuntimeException;
 use ReflectionClass;
 
 use Splot\DependencyInjection\Definition\ClosureService;
@@ -77,18 +78,15 @@ class ServicesResolver
         $service->setInstance($instance);
 
         // if there are any method calls, then call them
-        $methodCalls = $service->getMethodCalls();
-        foreach($methodCalls as $call) {
-            try {
-                $arguments = $this->parseArguments($call['arguments']);
-                $arguments = $this->resolveArguments($arguments);
-            } catch(CircularReferenceException $e) {
-                throw $e;
-            } catch(Exception $e) {
-                throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because arguments of method "'. $call['method'] .'" could not be resolved: '. $e->getMessage(), 0, $e);
+        try {
+            $methodCalls = $service->getMethodCalls();
+            foreach($methodCalls as $call) {
+                $this->callMethod($service, $call, $instance);
             }
-
-            call_user_func_array(array($instance, $call['method']), $arguments);
+        } catch(CircularReferenceException $e) {
+            throw $e;
+        } catch(Exception $e) {
+            throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because one of its method calls could not be resolved: '. $e->getMessage(), 0, $e);
         }
 
         return $instance;
@@ -218,6 +216,29 @@ class ServicesResolver
     }
 
     /**
+     * Call a method on a service.
+     * 
+     * @param  Service $service Service to call a method on.
+     * @param  array   $call    Method call parameters (`method` and `arguments`).
+     * @param  object  $instance [optional] Service object instance. Should be passed for all non-singleton services.
+     * @return mixed
+     *
+     * @throws RuntimeException When trying to call a method on a service that hasn't been instantiated yet.
+     */
+    public function callMethod(Service $service, array $call, $instance = null) {
+        if ($instance === null && !$service->isInstantiated()) {
+            throw new RuntimeException('Cannot call a method of a service that has not been instantiated yet, when trying to call "::'. $call['method'] .'" on "'. $service->getName() .'".');
+        }
+
+        $instance = $instance ? $instance : $service->getInstance();
+
+        $arguments = $this->parseArguments($call['arguments']);
+        $arguments = $this->resolveArguments($arguments);
+
+        return call_user_func_array(array($instance, $call['method']), $arguments);
+    }
+
+    /**
      * Parses arguments definition by resolving parameters and parsing service links.
      * 
      * @param  string|array $argument Argument(s) to be parsed.
@@ -239,6 +260,28 @@ class ServicesResolver
 
         // and maybe it's a reference to another service?
         $argument = $this->parseServiceLink($argument);
+
+        return $argument;
+    }
+
+    /**
+     * Parses arguments in order to find lone '@' sign which references the "self" service.
+     *
+     * @param  Service $service  Service that should be references as "@".
+     * @param  string|array $argument Arguments to be parsed.
+     * @return mixed
+     */
+    public function parseSelfInArgument(Service $service, $argument) {
+        if (is_array($argument)) {
+            foreach($argument as $i => $arg) {
+                $argument[$i] = $this->parseSelfInArgument($service, $arg);
+            }
+            return $argument;
+        }
+
+        if ($argument === '@') {
+            $argument = new ServiceLink($service->getName(), false);
+        }
 
         return $argument;
     }
