@@ -21,26 +21,26 @@ use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServicesResolver;
 
-class Container
+class Container implements ContainerInterface
 {
 
     /**
      * Set of all parameters.
-     * 
+     *
      * @var array
      */
     protected $parameters = array();
 
     /**
      * Set of all services.
-     * 
+     *
      * @var array
      */
     protected $services = array();
 
     /**
      * Default service options.
-     * 
+     *
      * @var array
      */
     protected $defaultOptions = array(
@@ -113,7 +113,7 @@ class Container
      * Set a service by passing an object instance.
      *
      * Also accepts closures which will be treated as factories.
-     * 
+     *
      * @param string  $name      Name of the service.
      * @param object|closure $object Object to be set as a service or a closure that returns the service.
      * @param array   $options   [optional] Array of options for the service definition.
@@ -134,11 +134,11 @@ class Container
 
     /**
      * Register a service with the given name and options.
-     * 
+     *
      * @param  string $name    Name of the service.
      * @param  array|string $options Array of options for the service definition or a string with name
      *                               of a class to instantiate.
-     * 
+     *
      * @throws ReadOnlyException When trying to overwrite a service that is marked as read only.
      */
     public function register($name, $options) {
@@ -149,12 +149,12 @@ class Container
 
     /**
      * Retrieves a service with the given name.
-     * 
+     *
      * @param  string $name Name of the service to retrieve.
      * @return object
      *
      * @throws ServiceNotFoundException When could not find a service with the given name.
-     * @throws CircularReferenceException When 
+     * @throws CircularReferenceException When
      */
     public function get($name) {
         if (!isset($this->services[$name])) {
@@ -189,7 +189,7 @@ class Container
 
     /**
      * Checks if the given service is registered.
-     * 
+     *
      * @param  string  $name Name of the service.
      * @return boolean
      */
@@ -199,7 +199,7 @@ class Container
 
     /**
      * Returns the definition of a service.
-     * 
+     *
      * @param  string $name Name of the service which definition we want to retrieve.
      * @return Service
      *
@@ -219,7 +219,7 @@ class Container
 
     /**
      * Sets a paremeter to the given value.
-     * 
+     *
      * @param string $name Name of the parameter.
      * @param mixed $value Value of the parameter.
      */
@@ -230,10 +230,10 @@ class Container
 
     /**
      * Returns the given parameter.
-     * 
+     *
      * @param string $name Name of the parameter.
      * @return mixed
-     * 
+     *
      * @throws ParameterNotFoundException When there is no such parameter.
      */
     public function getParameter($name) {
@@ -246,7 +246,7 @@ class Container
 
     /**
      * Checks if the given parameter was defined.
-     * 
+     *
      * @param string $name Name of the parameter.
      * @return bool
      */
@@ -256,7 +256,7 @@ class Container
 
     /**
      * Return all registered parameters.
-     * 
+     *
      * @return array
      */
     public function dumpParameters() {
@@ -265,7 +265,7 @@ class Container
 
     /**
      * Load parameters and services from the given file.
-     * 
+     *
      * @param  string $file Path to the file.
      * @return bool
      *
@@ -301,8 +301,8 @@ class Container
     /**
      * Load parameters and services from an array with definitions.
      *
-     * There should be at least one top level key: `parameters` or `services`. 
-     * 
+     * There should be at least one top level key: `parameters` or `services`.
+     *
      * @param  array  $definitions Array of definitions.
      * @return bool
      */
@@ -326,7 +326,7 @@ class Container
 
     /**
      * Add a service definition and decorate it with options.
-     * 
+     *
      * @param Service $service Service definition.
      * @param array   $options [optional] Array of options.
      *
