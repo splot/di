@@ -96,7 +96,7 @@ This will instantiate the service and resolve and inject any dependencies.
 
 #### Using parameters
 
-You can use container parameters to parametrized common arguments or even class names or other options.
+You can use container parameters for parametrized common arguments or even class names or other options.
 
 To set a parameter call:
 
@@ -183,11 +183,11 @@ You can also reference parameters or other services here in method arguments, e.
 
 If a single argument is given to the method, then index 1 or the call array can be that argument and not an array (like in two last lines in the above example).
 
-### factory
+### factory_service, factory_method, factory_arguments
 
 TBD.
 
-### factory_service, factory_method, factory_arguments
+### factory
 
 TBD.
 
@@ -211,21 +211,42 @@ All services in Splot DI are singletons by default. Set `singleton` option to `f
         class: %my_service.class%
         singleton: false
 
-### alias
-
-TBD.
-
 ### aliases
 
-TBD.
+When registering a service you can also register a bunch of aliases for it. You will be able to use them when retrieving the service.
+
+    my_service:
+        class: %my_service.class%
+        aliases:
+            - my_service.alias
+            - my_fake_service
+            - your_service
+
+### alias
+
+You can register a service as an alias to another service. It will simply make the container refer to that service also by its new name.
+
+    my_service:
+        class: %my_service.class%
+
+    my_service.alias:
+        alias: my_service
 
 ### private
 
-TBD.
+If you don't want a service to be directly retrievable from the container, mark it as `private`. You will not be able to get it using `$container->get()` method, but you will be able to use it as a dependency to another service.
+
+    my_service:
+        class: %my_service.class%
+        private: true
 
 ### read_only
 
-TBD.
+If you want to make sure that your service will not be overwritten by another service then mark it as read only.
+
+    my_service:
+        class: %my_service.class%
+        read_only: true
 
 ## Tips
 
