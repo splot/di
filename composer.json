@@ -1,6 +1,6 @@
 {
     "name": "splot/di",
-    "description": "Lightweight Dependency Injection Container by Splot Framework.",
+    "description": "Dependency Injection Container by Splot Framework.",
     "keywords": ["di", "ioc", "dependency", "container"],
     "license": "MIT",
     "authors": [
