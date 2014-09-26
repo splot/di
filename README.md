@@ -17,11 +17,10 @@ It's a viable alternative to popular [Symfony Dependency Injection Component](ht
 - Includes a "parameter container" and parameters can be used inside of various options or as dependencies or include one another.
 - Can notify other services about a service existence (e.g. for adding handlers to a collection).
 - Supports factory definitions, where service is created by calling a method on another service.
-- Service definitions can extend other service definitions to avoid repeating common formulae (`extends` option).
-- Allows for optional dependencies.
-- Supports private, read only and aliased services as well as singleton services (default) and not-singleton services (option).
+- Definitions can extend each other to avoid repeating common formulae (`extends` option).
+- Allows optional arguments.
 - Reads definitions from YML files.
-- Fully tested.
+- Supports private, read only and aliased services as well as singleton services (default) and not-singleton services (option).
 
 ## TL;DR docs
 
@@ -86,6 +85,15 @@ You can also load service definitions and parameters from a YML file. This is hi
 
 You can check an example YML file here: [tests/fixtures/coverall.yml](https://github.com/splot/di/blob/master/tests/fixtures/coverall.yml).
 
+The loaded YML file has to be split into two sections: `parameters` and `services` (you can omit any of them), e.g.
+
+    parameters:
+        my_parameter: true
+
+    services:
+        my_service:
+            class: MyApp\MyService
+
 #### Retrieving services
 
 To retrieve a service from the container just call:
@@ -134,7 +142,7 @@ Some of them are obsolete when registering already existing object as a service 
 
 All examples are using YML notation, but can be translated 1:1 to PHP options array.
 
-### class
+#### class
 
 Class name of the service. Should be a full namespaced class, e.g.
 
@@ -146,7 +154,9 @@ Can also be a parameter, if previously defined:
     my_service:
         class: %my_service.class%
 
-### arguments
+This is the only required option, except for abstract or factory services.
+
+#### arguments
 
 List of constructor arguments for the service. Can reference other services (by `@` notation) or parameters (by `%` notation):
 
@@ -166,7 +176,7 @@ When referencing other services they can be optional - if you add `?` sign at th
 
 In the example above, if `logger` service does not exist then `null` will be put in its place.
 
-### call
+#### call
 
 List of service methods that should be called on the service right after it has been instantiated. Each call entry is an array where index 0 is method name and index 1 is an array of the method arguments.
 
@@ -183,27 +193,84 @@ You can also reference parameters or other services here in method arguments, e.
 
 If a single argument is given to the method, then index 1 or the call array can be that argument and not an array (like in two last lines in the above example).
 
-### factory_service, factory_method, factory_arguments
+#### factory_service, factory_method, factory_arguments
 
-TBD.
+If your service needs to be a product of a factory then you can specify what method to call on what service with what arguments to get that service.
 
-### factory
+    my_factory:
+        class: MyApp\MyServicesFactory
 
-TBD.
+    my_service:
+        factory_service: my_factory
+        factory_method: provideService
+        factory_arguments:
+            - @logger?
+            - %debug%
 
-### notify
+When getting `my_service` the method `::provideService()` of a service `my_factory` will be called with the specified arguments and the result of that method call will be returned as the service. It will also be cached as the service instance, unless `singleton` option will be set to `false` in which case every request for `my_service` will result in the above method call.
 
-TBD.
+#### factory
 
-### abstract
+Shorthand option for `factory_service`, `factory_method` and `factory_arguments` options.
 
-Set to `true` if you want to mark this service as not instantiable.
+An array where index 0 = `factory_service`, 1 = `factory_method` and 2 = `factory_arguments` (optional).
 
-### extends
+    my_service:
+        factory: ['@my_factory', 'provideService', [@logger?, %debug%]]
 
-TBD.
+#### notify
 
-### singleton
+Unique feature of Splot DI is ability for services to notify other services about their existence. This is an alternative to tagging and writing compiler passes in Symfony DI Component.
+
+`notify` is essentially a method call on another service that may or may not exist.
+
+    my_services_collection:
+        class MyApp\MyServicesCollection
+
+    my_service.one:
+        class: MyApp\MyService
+        arguments: ['one']
+        notify:
+            - [my_services_collection, addService, ["service_one", "@"]]
+
+    my_services.two:
+        class: MyApp\MyService
+        arguments: ['two']
+        notify:
+            - [my_services_collection, addService, ["service_two", "@"]]
+
+With the above definition, retrieving the service `my_services_collection` will also cause services `my_service.one` and `my_service.two` to be instantiated and injected to `my_services_collection` by calling `::addService()` method on `my_services_collection` with specified arguments for each of the injected services. The special character `@` in this case refers to the service itself and is a shorthand for `@my_service.one` or `@my_service.two` appropriately.
+
+However, retrieving the service `my_service.one` itself will not cause `my_services_collection` to be instantiated. But later, if `my_services_collection` is instantiated then `my_service.one` will be appropriately injected to it.
+
+A service can notify indefinite number of other services. It can also try to notify services that don't exist - in which case no exception is thrown nor any error raised.
+
+See "Common Recipes" section below for use cases of this feature.
+
+#### abstract
+
+Set to `true` if you want to mark this service as not instantiable. This is useful when you want to create a common service recipe that will be reused by other services.
+
+Abstract services don't need to specify a class.
+
+#### extends
+
+Specify "parent" definition of a service. This service will inherit almost all options (those that make sense, e.g. `abstract` option is not inherited) from the service it extends and can also overwrite any of them.
+
+    my_service:
+        class: MyApp\MyService
+        arguments: ["my_app", "1.0", %debug%, @logger?]
+        call:
+            - [setSomething, true]
+            - [incrementCounter]
+
+    your_service:
+        class: YourApp\YourService
+        extends: my_service
+
+`your_service` service will be instantiated as an object of class `YourApp\YourService` but with the same constructor arguments and method calls as `my_service`.
+
+#### singleton
 
 All services in Splot DI are singletons by default. Set `singleton` option to `false` if you want the container to always return a new instance.
 
@@ -211,7 +278,7 @@ All services in Splot DI are singletons by default. Set `singleton` option to `f
         class: %my_service.class%
         singleton: false
 
-### aliases
+#### aliases
 
 When registering a service you can also register a bunch of aliases for it. You will be able to use them when retrieving the service.
 
@@ -222,7 +289,7 @@ When registering a service you can also register a bunch of aliases for it. You 
             - my_fake_service
             - your_service
 
-### alias
+#### alias
 
 You can register a service as an alias to another service. It will simply make the container refer to that service also by its new name.
 
@@ -232,7 +299,7 @@ You can register a service as an alias to another service. It will simply make t
     my_service.alias:
         alias: my_service
 
-### private
+#### private
 
 If you don't want a service to be directly retrievable from the container, mark it as `private`. You will not be able to get it using `$container->get()` method, but you will be able to use it as a dependency to another service.
 
@@ -240,7 +307,7 @@ If you don't want a service to be directly retrievable from the container, mark 
         class: %my_service.class%
         private: true
 
-### read_only
+#### read_only
 
 If you want to make sure that your service will not be overwritten by another service then mark it as read only.
 
@@ -250,19 +317,56 @@ If you want to make sure that your service will not be overwritten by another se
 
 ## Tips
 
-TBD.
-
 ### Compact definition
 
-TBD.
+If your service is just an instance of a class that doesn't get any constructor arguments and you don't need to set any other options, then this:
+
+    my_service:
+        class: MyApp\MyService
+
+can be reduced to this:
+
+    my_service: MyApp\MyService
 
 ### Compact factory definition
 
-TBD.
+If your service is a product of a factory and you don't neeed to set any other options, then this:
 
-## Common recipes
+    my_service:
+        factory: ['@my_factory', 'provideService', [@logger?, %debug%]]
 
-TBD.
+can be reduced to this:
+
+    my_service: ['@my_factory', 'provideService', [@logger?, %debug%]]
+
+## Common Recipes
+
+Here are some common recipes for reuse or better understanding of Splot DI.
+
+### Using "notify" option for adding log handlers
+
+Using `notify` option can give you a lot of power and flexibility.
+
+Best use case for it is when you have a facade service with a simple API that takes a dynamic number of other classes that handle the input in various ways. For example a simple logger with many log handlers (as in [Monolog](https://github.com/Seldaek/monolog)):
+
+    logger:
+        class: Monolog\Logger
+
+    logger.handler.stream:
+        class: Monolog\Handler\StreamHandler
+        arguments:
+            - "path/to/your.log"
+            - 300
+        notify:
+            - ["logger", "pushHandler", ["@"]]
+
+    logger.handler.slack:
+        class: Monolog\Handler\SlackHandler
+        arguments: ["%slack.api.token%", "%slack.log_channel%"]
+        notify:
+            - ["logger", "pushHandler", ["@"]]
+
+Now, when you retrieve the `logger` service it will automatically have `StreamHandler` and `SlackHandler` injected. And nothing stops other parts of your application (e.g. other modules or "bundles") to add their own handlers.
 
 ## Contribute
 
