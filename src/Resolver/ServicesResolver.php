@@ -12,7 +12,6 @@ use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Exceptions\AbstractServiceException;
 use Splot\DependencyInjection\Exceptions\CircularReferenceException;
 use Splot\DependencyInjection\Exceptions\InvalidServiceException;
-use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServiceLink;
