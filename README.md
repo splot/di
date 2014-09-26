@@ -21,6 +21,7 @@ It's a viable alternative to popular [Symfony Dependency Injection Component](ht
 - Allows optional arguments.
 - Reads definitions from YML files.
 - Supports private, read only and aliased services as well as singleton services (default) and not-singleton services (option).
+- Compatible with [PHP Container Interoperability](https://github.com/container-interop/container-interop) project.
 
 ## TL;DR docs
 

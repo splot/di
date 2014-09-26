@@ -3,7 +3,9 @@ namespace Splot\DependencyInjection\Exceptions;
 
 use MD\Foundation\Exceptions\NotFoundException;
 
-class ParameterNotFoundException extends NotFoundException
+use Interop\Container\Exception\NotFoundException as InteropNotFoundException;
+
+class ParameterNotFoundException extends NotFoundException implements InteropNotFoundException
 {
 
     

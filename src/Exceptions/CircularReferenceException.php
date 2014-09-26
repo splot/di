@@ -3,7 +3,9 @@ namespace Splot\DependencyInjection\Exceptions;
 
 use LogicException;
 
-class CircularReferenceException extends LogicException
+use Interop\Container\Exception\ContainerException;
+
+class CircularReferenceException extends LogicException implements ContainerException
 {
 
     

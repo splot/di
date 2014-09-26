@@ -1,6 +1,8 @@
 <?php
 namespace Splot\DependencyInjection;
 
+use Interop\Container\ContainerInterface;
+
 use MD\Foundation\Debug\Debugger;
 use MD\Foundation\Exceptions\InvalidFileException;
 use MD\Foundation\Exceptions\NotImplementedException;
@@ -21,7 +23,7 @@ use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServicesResolver;
 
-class Container
+class Container implements ContainerInterface
 {
 
     /**
@@ -151,10 +153,10 @@ class Container
      * Retrieves a service with the given name.
      * 
      * @param  string $name Name of the service to retrieve.
-     * @return object
+     * @return mixed
      *
      * @throws ServiceNotFoundException When could not find a service with the given name.
-     * @throws CircularReferenceException When 
+     * @throws CircularReferenceException When a circular dependency was found while retrieving the service.
      */
     public function get($name) {
         if (!isset($this->services[$name])) {
