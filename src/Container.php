@@ -297,7 +297,14 @@ class Container implements ContainerInterface
                 throw new InvalidFileException('Unrecognized file type "'. $extension .'" could not be loaded into the container. Only supported file format is YAML (.yml, .yaml)');
         }
 
-        return $this->loadFromArray($definitions);
+        $success = $this->loadFromArray($definitions);
+
+        // add to loaded files
+        if ($success) {
+            $this->loadedFiles[] = $file;
+        }
+
+        return $success;
     }
 
     /**

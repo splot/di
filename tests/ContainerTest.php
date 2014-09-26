@@ -17,6 +17,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
 {
 
     private $simpleServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService';
+    private $abstractServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\AbstractService';
     private $argumentedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ArgumentedService';
     private $parametrizedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService';
     private $calledServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\CalledService';
@@ -91,6 +92,15 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertInstanceOf($this->simpleServiceClass, $container->get('simple'));
     }
 
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringServiceByUndefinedParameter() {
+        $container = new Container();
+        $container->register('simple', '%simple.class%');
+        $container->get('simple');
+    }
+
     public function testRegisteringSingletonService() {
         $container = new Container();
         $container->register('simple', $this->simpleServiceClass);
@@ -154,6 +164,23 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     public function testLoadingFromInexistentFile() {
         $container = new Container();
         $container->loadFromFile(__DIR__ .'/fixtures/parameters.inexistent.yml');
+    }
+
+    public function testLoadingTwiceFromFile() {
+        $container = new Container();
+        $success = $container->loadFromFile(__DIR__ .'/fixtures/parameters.yml');
+        $this->assertTrue($success);
+
+        $success2 = $container->loadFromFile(__DIR__ .'/fixtures/parameters.yml');
+        $this->assertTrue($success2);
+    }
+
+    /**
+     * @expectedException \MD\Foundation\Exceptions\InvalidFileException
+     */
+    public function testLoadingUnsupportedFile() {
+        $container = new Container();
+        $container->loadFromFile(__DIR__ .'/fixtures/parameters.ini');
     }
 
     public function testRegisteringWithConstructorInjection() {
@@ -336,6 +363,23 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals(4, $calledService->getVersion());
     }
 
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringInvalidSetterInjectionDefinition() {
+        $container = new Container();
+        $container->setParameter('name', 'di');
+        $container->setParameter('version', 4);
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('method' => 'setName', 'arguments' => array('%name%.overwritten')),
+                array('method' => 'setVersion', 'arguments' => array('%version%'))
+            )
+        ));
+    }
+
     public function testRegisteringWithServiceAndParametersSetterInjection() {
         $container = new Container();
         $container->setParameter('name', 'called_simple');
@@ -371,6 +415,23 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $calledService = $container->get('called');
         $this->assertInstanceOf($this->simpleServiceClass, $calledService->getSimple());
         $this->assertNull($calledService->getOptionallySimple());
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringWithUndefinedServiceInSetterInjection() {
+        $container = new Container();
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('called', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('splot', 2),
+            'call' => array(
+                array('setSimple', array('@simple', '@simple_nope'))
+            )
+        ));
+
+        $calledService = $container->get('called');
     }
 
     public function testRegisteringWithOptionalDefinedServiceInSetterInjection() {
@@ -845,6 +906,17 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertInstanceOf($this->simpleServiceClass, $container->get('factory.product'));
     }
 
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringInvalidFactoryServiceDefinition() {
+        $container = new Container();
+        $container->register('factory', $this->simpleFactoryClass);
+        $container->register('factory.product', array(
+            'factory_service' => 'factory'
+        ));
+    }
+
     public function testRegisteringCompactFactoryService() {
         $container = new Container();
         $container->register('factory', $this->simpleFactoryClass);
@@ -853,6 +925,18 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         ));
 
         $this->assertInstanceOf($this->simpleServiceClass, $container->get('factory.product'));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringInvalidCompactFactoryService() {
+        $container = new Container();
+        $container = new Container();
+        $container->register('factory', $this->simpleFactoryClass);
+        $container->register('factory.product', array(
+            'factory' => array('factory')
+        ));
     }
 
     public function testRegisteringSuperCompactFactoryService() {
@@ -873,6 +957,20 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
             'factory_service' => 'factory',
             'factory_method' => 'get',
             'abstract' => true
+        ));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringExtendingFactoryService() {
+        $container = new Container();
+        $container->register('factory', $this->simpleFactoryClass);
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('factory.product', array(
+            'factory_service' => 'factory',
+            'factory_method' => 'get',
+            'extends' => 'simple'
         ));
     }
 
@@ -930,6 +1028,19 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $service = $container->get('something');
         $this->assertInstanceOf($this->namedProductClass, $service);
         $this->assertEquals('foreverandever.something', $service->getName());
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringInvalidFactoryService() {
+        $container = new Container();
+        $container->register('factory', $this->abstractServiceClass);
+        $container->register('factory_product', array(
+            'factory_service' => 'factory',
+            'factory_method' => 'provide'
+        ));
+        $container->get('factory_product');
     }
 
     public function testNotifyingAService() {
@@ -996,6 +1107,25 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     public function testNotifyExtraLazy() {
         $container = new Container();
         $container->register('collection', $this->collectionServiceClass);
+
+        $collection = $container->get('collection');
+        $this->assertCount(0, $collection->getServices());
+
+        $container->register('one', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('collection', 'addService', array('@', 'one'))
+            )
+        ));
+
+        $this->assertCount(1, $collection->getServices());
+        $this->assertSame($container->get('one'), $collection->getService('one'));
+    }
+
+    public function testNotifyingPreviouslyInstantiatedService() {
+        $container = new Container();
+        $collectionServiceClass = $this->collectionServiceClass;
+        $container->set('collection', new $collectionServiceClass);
 
         $collection = $container->get('collection');
         $this->assertCount(0, $collection->getServices());
