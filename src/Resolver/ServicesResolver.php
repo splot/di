@@ -144,8 +144,7 @@ class ServicesResolver
 
         // deal with closure services
         if ($service instanceof ClosureService) {
-            $closure = $service->getClosure();
-            return $closure($this->container);
+            return call_user_func_array($service->getClosure(), array($this->container));
         }
 
         // deal with object services
