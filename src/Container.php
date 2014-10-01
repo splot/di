@@ -88,14 +88,14 @@ class Container implements ContainerInterface
      * 
      * @var ParametersResolver
      */
-    private $parametersResolver;
+    protected $parametersResolver;
 
     /**
      * Services resolver.
      * 
      * @var ServicesResolver
      */
-    private $servicesResolver;
+    protected $servicesResolver;
 
     /**
      * Constructor.
