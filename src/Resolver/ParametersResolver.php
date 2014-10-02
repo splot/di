@@ -45,7 +45,7 @@ class ParametersResolver
         
         // only bother with resolving when there are at least two %
         $firstDelimeter = strpos($parameter, '%');
-        $secondDelimeter = strpos($parameter, '%', (int)$firstDelimeter + 1);
+        $secondDelimeter = strpos($parameter, '%', min((int)$firstDelimeter + 1, mb_strlen($parameter)));
         if ($firstDelimeter === false || $secondDelimeter === false || $firstDelimeter === $secondDelimeter) {
             return $parameter;
         }
