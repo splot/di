@@ -393,7 +393,7 @@ class Container implements ContainerInterface
                     throw new InvalidServiceException('Invalid service name given to notify about existence of "'. $service->getName() .'".');
                 }
 
-                $notifyServiceName = $notify[0];
+                $notifyServiceName = ltrim($notify[0], '@');
 
                 if (!isset($notify[1]) || !is_string($notify[1])) {
                     throw new InvalidServiceException('Invalid method name to call given to notify about existence of "'. $service->getName() .'".');
