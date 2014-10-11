@@ -2,6 +2,7 @@
 namespace Splot\DependencyInjection\Resolver;
 
 use Splot\DependencyInjection\Container;
+use Splot\DependencyInjection\Exceptions\InvalidParameterException;
 
 class ParametersResolver
 {
@@ -44,16 +45,35 @@ class ParametersResolver
         }
         
         // only bother with resolving when there are at least two %
+        $parameterLength = mb_strlen($parameter);
         $firstDelimeter = strpos($parameter, '%');
-        $secondDelimeter = strpos($parameter, '%', min((int)$firstDelimeter + 1, mb_strlen($parameter)));
+        $secondDelimeter = strpos($parameter, '%', min((int)$firstDelimeter + 1, $parameterLength));
         if ($firstDelimeter === false || $secondDelimeter === false || $firstDelimeter === $secondDelimeter) {
             return $parameter;
         }
 
+        // special case when fully referencing another parameter, to avoid regex
+        // but also handle cases where referencing an array parameter
+        // (otherwise preg_replace_callback below will trigger array to string conversion)
+        if ($firstDelimeter === 0 && $secondDelimeter === $parameterLength - 1) {
+            $referenced = mb_substr($parameter, 1, -1);
+            return $this->container->hasParameter($referenced)
+                ? $this->container->getParameter($referenced)
+                : $parameter;
+        }
+
         $container = $this->container;
-        $parameter = preg_replace_callback('#%([\w\d_\.]+)%#i', function($matches) use ($container) {
+        $original = $parameter;
+        $parameter = preg_replace_callback('#%([\w\d_\.]+)%#i', function($matches) use ($container, $original) {
             $name = $matches[1];
             if ($container->hasParameter($name)) {
+                $param = $container->getParameter($name);
+
+                // only scalar types can be referenced like that
+                if (!is_scalar($param)) {
+                    throw new InvalidParameterException('Invalid parameter construction - cannot reference non-scalar type parameter in "'. $original .'".');
+                }
+
                 return $container->getParameter($name);
             }
 

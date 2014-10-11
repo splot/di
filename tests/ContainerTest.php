@@ -1141,4 +1141,15 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($container->get('one'), $collection->getService('one'));
     }
 
+    public function testInjectArrayFromParameter() {
+        $container = new Container();
+        $container->setParameter('names', array('name1', 'name2', 'name3', 'name4'));
+        $container->register('arrayed', array(
+            'class' => $this->namedProductClass,
+            'arguments' => array('%names%')
+        ));
+
+        $this->assertNotEmpty($container->get('arrayed'));
+    }
+
 }

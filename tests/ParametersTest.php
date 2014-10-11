@@ -78,6 +78,17 @@ class ParametersTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('splot v.0.5 - (%alpha%)', $container->getParameter('full_name'));
     }
 
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidParameterException
+     */
+    public function testReferencingNonScalarTypeInParameter() {
+        $container = new Container();
+        $container->setParameter('list', array('a', 'b', 'c', 'd', 'e'));
+        $container->setParameter('with_list', 'This is the list: %list%.');
+
+        $container->getParameter('with_list');
+    }
+
     public function testLoadingFromYaml() {
         $container = new Container();
         $container->loadFromFile(__DIR__ .'/fixtures/parameters.yml');
