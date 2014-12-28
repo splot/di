@@ -12,7 +12,6 @@ use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Exceptions\AbstractServiceException;
 use Splot\DependencyInjection\Exceptions\CircularReferenceException;
 use Splot\DependencyInjection\Exceptions\InvalidServiceException;
-use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServiceLink;
@@ -167,12 +166,7 @@ class ServicesResolver
         }
 
         // class can be defined as a parameter
-        try {
-            $class = $this->parametersResolver->resolve($service->getClass());
-        } catch(ParameterNotFoundException $e) {
-            throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because class parameter '. $class .' could not be found.', 0, $e);
-        }
-
+        $class = $this->parametersResolver->resolve($service->getClass());
         if (!class_exists($class)) {
             throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because class '. $class .' was not found.');
         }
@@ -185,14 +179,9 @@ class ServicesResolver
         }
 
         // parse constructor arguments
-        try {
-            $arguments = $this->parseArguments($service->getArguments());
-        } catch(Exception $e) {
-            throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because one or more of its arguments could not be resolved: '. $e->getMessage(), 0, $e);
-        }
+        $arguments = $this->parseArguments($service->getArguments());
 
         $resolver = $this;
-
         $instantiateClosure = function() use ($class, $classReflection, $arguments, $resolver) {
             // if no constructor arguments then simply instantiate the class using "new" keyword
             if (empty($arguments)) {

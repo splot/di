@@ -20,6 +20,7 @@ use Splot\DependencyInjection\Exceptions\ReadOnlyException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServicesResolver;
+use Splot\DependencyInjection\ContainerInterface;
 
 class Container implements ContainerInterface
 {
@@ -47,10 +48,10 @@ class Container implements ContainerInterface
         'class' => null,
         'extends' => null,
         'arguments' => array(),
+        'call' => array(),
         'factory_service' => null,
         'factory_method' => null,
         'factory_arguments' => array(),
-        'call' => array(),
         'notify' => array(),
         'abstract' => false,
         'singleton' => true,
@@ -86,14 +87,14 @@ class Container implements ContainerInterface
      * 
      * @var ParametersResolver
      */
-    private $parametersResolver;
+    protected $parametersResolver;
 
     /**
      * Services resolver.
      * 
      * @var ServicesResolver
      */
-    private $servicesResolver;
+    protected $servicesResolver;
 
     /**
      * Constructor.
@@ -151,10 +152,10 @@ class Container implements ContainerInterface
      * Retrieves a service with the given name.
      *
      * @param  string $name Name of the service to retrieve.
-     * @return object
+     * @return mixed
      *
      * @throws ServiceNotFoundException When could not find a service with the given name.
-     * @throws CircularReferenceException When
+     * @throws CircularReferenceException When a circular dependency was found while retrieving the service.
      */
     public function get($name) {
         if (!isset($this->services[$name])) {
@@ -295,7 +296,14 @@ class Container implements ContainerInterface
                 throw new InvalidFileException('Unrecognized file type "'. $extension .'" could not be loaded into the container. Only supported file format is YAML (.yml, .yaml)');
         }
 
-        return $this->loadFromArray($definitions);
+        $success = $this->loadFromArray($definitions);
+
+        // add to loaded files
+        if ($success) {
+            $this->loadedFiles[] = $file;
+        }
+
+        return $success;
     }
 
     /**
@@ -384,7 +392,7 @@ class Container implements ContainerInterface
                     throw new InvalidServiceException('Invalid service name given to notify about existence of "'. $service->getName() .'".');
                 }
 
-                $notifyServiceName = $notify[0];
+                $notifyServiceName = ltrim($notify[0], '@');
 
                 if (!isset($notify[1]) || !is_string($notify[1])) {
                     throw new InvalidServiceException('Invalid method name to call given to notify about existence of "'. $service->getName() .'".');

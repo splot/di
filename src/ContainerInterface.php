@@ -1,9 +1,11 @@
 <?php
-
 namespace Splot\DependencyInjection;
 
-interface ContainerInterface
+use Interop\Container\ContainerInterface as InteropContainerInterface;
+
+interface ContainerInterface extends InteropContainerInterface
 {
+
     /**
      * Set a service by passing an object instance.
      *
@@ -16,7 +18,18 @@ interface ContainerInterface
      *
      * @throws ReadOnlyException When trying to overwrite a service that is marked as read only.
      */
-    public function set($name, $object, $options = array(), $singleton = true);
+    function set($name, $object, $options = array(), $singleton = true);
+
+    /**
+     * Register a service with the given name and options.
+     *
+     * @param  string $name    Name of the service.
+     * @param  array|string $options Array of options for the service definition or a string with name
+     *                               of a class to instantiate.
+     *
+     * @throws ReadOnlyException When trying to overwrite a service that is marked as read only.
+     */
+    function register($name, $options);
 
     /**
      * Retrieves a service with the given name.
@@ -25,7 +38,7 @@ interface ContainerInterface
      * @return object
      *
      * @throws ServiceNotFoundException When could not find a service with the given name.
-     * @throws CircularReferenceException When
+     * @throws CircularReferenceException When a circular dependency was found while retrieving the service.
      */
     function get($name);
 
