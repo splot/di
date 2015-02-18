@@ -16,6 +16,7 @@ parameters:
     called_service.class: Splot\DependencyInjection\Tests\TestFixtures\CalledService
     extended_service.class: Splot\DependencyInjection\Tests\TestFixtures\ExtendedService
     collection_service.class: Splot\DependencyInjection\Tests\TestFixtures\CollectionService
+    collection_service_dependant.class: Splot\DependencyInjection\Tests\TestFixtures\CollectionServiceDependant
     simple_factory.class: Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory
     named_factory.class: Splot\DependencyInjection\Tests\TestFixtures\NamedFactory
     named_factory.product.class: Splot\DependencyInjection\Tests\TestFixtures\NamedProduct
@@ -105,6 +106,13 @@ services:
         private: true
         notify:
             - ["collection_service", "addService", ["@", "item_two"]]
+
+    collection_service.item_dependent:
+        class: %collection_service_dependant.class%
+        arguments:
+            - @collection_service
+        notify:
+            - ["@collection_service", "addService", ["@", "dependant"]]
 
     simple_factory: %simple_factory.class%
 

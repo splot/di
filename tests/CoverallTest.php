@@ -54,6 +54,7 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
             'called_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\CalledService',
             'extended_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService',
             'collection_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\CollectionService',
+            'collection_service_dependant.class' => 'Splot\DependencyInjection\Tests\TestFixtures\CollectionServiceDependant',
             'simple_factory.class' => 'Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory',
             'named_factory.class' => 'Splot\DependencyInjection\Tests\TestFixtures\NamedFactory',
             'named_factory.product.class' => 'Splot\DependencyInjection\Tests\TestFixtures\NamedProduct'
