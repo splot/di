@@ -1,0 +1,20 @@
+services:
+
+    # e.g. @collector
+    subscribing_service:
+        class: Splot\DependencyInjection\Tests\TestFixtures\SimpleService
+        arguments:
+            - @required_service
+        notify:
+            - ['@subscriber_service', 'subscribeService', ['event', 'subscribing_service', 'doSomething']]
+    
+    # e.g. @client logger
+    collection_service.item:
+        class: Splot\DependencyInjection\Tests\TestFixtures\SimpleService
+        arguments:
+            - @required_service
+        notify:
+            - ['@collection_service', 'addService', ['@', 'collection_service.item']]
+    
+    # e.g. @client
+    required_service: Splot\DependencyInjection\Tests\TestFixtures\SimpleService
