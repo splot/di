@@ -371,6 +371,7 @@ class Container implements ContainerInterface
 
         $this->services[$service->getName()] = $service;
 
+        // register method calls on the service
         if (is_array($options['call']) && !empty($options['call'])) {
             foreach($options['call'] as $call) {
                 if (!isset($call[0]) || !is_string($call[0])) {
@@ -459,6 +460,13 @@ class Container implements ContainerInterface
         $this->clearInternalCaches();
     }
 
+    /**
+     * Expands short options and definitions to full options array.
+     * 
+     * @param  array   $options Array of service definition options.
+     * @param  Service $service The service to configure.
+     * @return array
+     */
     protected function expandAndVerifyOptions(array $options, Service $service) {
         // if options is an array with at least 2 numeric keys then treat it as a very compact factory definition
         if (isset($options[0]) && isset($options[1]) && (count($options) === 2 || count($options) === 3)) {
