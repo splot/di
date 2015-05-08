@@ -133,6 +133,11 @@ class Container implements ContainerInterface
         // for backward compatibility
         $options = is_array($options) ? $options : array('read_only' => $options, 'singleton' => $singleton);
 
+        // if overwriting an alias $name then make sure the real service is overwritten, not just the alias
+        try {
+            $name = $this->resolveServiceName($name);
+        } catch(ServiceNotFoundException $e) {}
+
         $service = Debugger::getType($object) === 'closure'
             ? new ClosureService($name, $object)
             : new ObjectService($name, $object);
@@ -152,6 +157,12 @@ class Container implements ContainerInterface
     public function register($name, $options) {
         // if $options is a string then treat it as a class name
         $options = is_array($options) ? $options : array('class' => $options);
+
+        // if overwriting an alias $name then make sure the real service is overwritten, not just the alias
+        try {
+            $name = $this->resolveServiceName($name);
+        } catch(ServiceNotFoundException $e) {}
+
         $this->addService(new Service($name), $options);
     }
 
