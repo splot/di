@@ -456,7 +456,10 @@ class Container implements ContainerInterface
                     ? (is_array($notify[2])
                         ? $notify[2] : array($notify[2])
                     ) : array();
-                $arguments = $this->servicesResolver->parseSelfInArgument($service, $arguments);
+
+                foreach($arguments as $i => $argument) {
+                    $arguments[$i] = $argument === '@' ? '@'. $service->getName() : $argument;
+                }
 
                 // if the service is already registered then add defined method call
                 if ($this->has($notifyServiceName)) {
