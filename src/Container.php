@@ -44,7 +44,7 @@ class Container implements ContainerInterface
      * 
      * @var array
      */
-    protected $servicesAliases = array();
+    protected $aliases = array();
 
     /**
      * Default service options.
@@ -166,28 +166,21 @@ class Container implements ContainerInterface
      */
     public function get($name) {
         $requestedName = $name;
-
-        // check in aliases first
-        if (isset($this->servicesAliases[$requestedName])) {
-            $name = $this->servicesAliases[$requestedName];
-        }
-
-        if (!isset($this->services[$name])) {
-            throw new ServiceNotFoundException('Requested undefined service "'. $requestedName .'".');
-        }
+        $name = $this->resolveServiceName($name);
+        $debugName = '"'. $requestedName .'"'. ($name !== $requestedName ? ' (alias for: "'. $name .'")' : '');
 
         // if this service is already on the loading list then it means there's a circular reference somewhere
         if (isset($this->loading[$name])) {
             $loadingServices = implode(', ', array_keys($this->loading));
             $this->loading = array();
-            throw new CircularReferenceException('Circular reference detected during loading of chained services '. $loadingServices .'. Referenced service: "'. $requestedName .'".');
+            throw new CircularReferenceException('Circular reference detected during loading of chained services '. $loadingServices .'. Referenced service: '. $debugName .'.');
         }
 
         // get service definition
         $service = $this->services[$name];
 
         if ($service->isPrivate() && empty($this->loading)) {
-            throw new PrivateServiceException('Requested private service "'. $requestedName .'".');
+            throw new PrivateServiceException('Requested private service '. $debugName .'.');
         }
 
         // mark this service as being currently loaded
@@ -209,7 +202,12 @@ class Container implements ContainerInterface
      * @return boolean
      */
     public function has($name) {
-        return isset($this->services[$name]) || isset($this->servicesAliases[$name]);
+        try {
+            $resolvedName = $this->resolveServiceName($name);
+        } catch(ServiceNotFoundException $e) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -222,17 +220,29 @@ class Container implements ContainerInterface
      */
     public function getDefinition($name) {
         $requestedName = $name;
-
-        // check in aliases first
-        if (isset($this->servicesAliases[$requestedName])) {
-            $name = $this->servicesAliases[$requestedName];
-        }
-
-        if (!isset($this->services[$name])) {
-            throw new ServiceNotFoundException('Requested definition of an undefined service "'. $requestedName .'".');
-        }
-
+        $name = $this->resolveServiceName($name);
         return $this->services[$name];
+    }
+
+    /**
+     * Resolves a service name through the chain of aliases.
+     * 
+     * @param  string $name         Service name.
+     * @param  string $originalName [optional] Original requested name. For internal use. Default: `null`.
+     * @return string
+     *
+     * @throws ServiceNotFoundException When the given name could not be resolved (meaning that the service probably does not exist).
+     */
+    public function resolveServiceName($name, $originalName = null) {
+        if (isset($this->services[$name])) {
+            return $name;
+        }
+
+        if (isset($this->aliases[$name])) {
+            return $this->resolveServiceName($this->aliases[$name], $originalName ? $originalName : $name);
+        }
+
+        throw new ServiceNotFoundException('Could not find service called "'. $name .'"' . ($originalName ? ' (requested as "'. $originalName .'")' : '') .'.');
     }
 
     public function dump() {
@@ -372,7 +382,7 @@ class Container implements ContainerInterface
 
         // if just an alias then add to list of aliases
         if ($options['alias']) {
-            $this->servicesAliases[$service->getName()] = $options['alias'];
+            $this->aliases[$service->getName()] = $options['alias'];
             return;
         }
 
@@ -469,7 +479,7 @@ class Container implements ContainerInterface
                 throw new InvalidServiceException('Trying to overwrite a previously defined service with an alias "'. $alias .'" for "'. $service->getName() .'".');
             }
 
-            $this->servicesAliases[$alias] = $service->getName();
+            $this->aliases[$alias] = $service->getName();
 
             // maybe there are some notifications waiting for this service alias?
             if (isset($this->notifyQueue[$alias])) {

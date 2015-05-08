@@ -117,6 +117,12 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($multiAliasService, $this->container->get('aliased_service.multi.three'));
 
         $this->assertSame($this->container->get('aliased_service.link'), $this->container->get('simple_service'));
+
+        $aliasedService = $this->container->get('aliased_service');
+        $this->assertSame($aliasedService, $this->container->get('aliased_service.multi_level.one'));
+        $this->assertSame($aliasedService, $this->container->get('aliased_service.multi_level.two'));
+        $this->assertSame($aliasedService, $this->container->get('aliased_service.multi_level.three'));
+        $this->assertSame($this->container->get('aliased_service.multi_level.one'), $this->container->get('aliased_service.multi_level.three'));
     }
 
     public function testNotSingleton() {
