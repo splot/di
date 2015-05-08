@@ -13,6 +13,7 @@ use Splot\DependencyInjection\Exceptions\AbstractServiceException;
 use Splot\DependencyInjection\Exceptions\CircularReferenceException;
 use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
+use Splot\DependencyInjection\Resolver\ArgumentsResolver;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServiceLink;
 use Splot\DependencyInjection\Container;
@@ -35,6 +36,13 @@ class ServicesResolver
     protected $parametersResolver;
 
     /**
+     * Arguments resolver.
+     * 
+     * @var ArgumentsResolver
+     */
+    protected $argumentsResolver;
+
+    /**
      * Cache of closures that instantiate services.
      * 
      * @var array
@@ -45,10 +53,13 @@ class ServicesResolver
      * Constructor.
      * 
      * @param Container $container The container.
+     * @param ParametersResolver $parametersResolver Parameters resolver.
+     * @param ArgumentsResolver $argumentsResolver Arguments resolver.
      */
-    public function __construct(Container $container, ParametersResolver $parametersResolver) {
+    public function __construct(Container $container, ParametersResolver $parametersResolver, ArgumentsResolver $argumentsResolver) {
         $this->container = $container;
         $this->parametersResolver = $parametersResolver;
+        $this->argumentsResolver = $argumentsResolver;
     }
 
     /**
@@ -115,7 +126,7 @@ class ServicesResolver
         try {
             $parent = $this->container->getDefinition($parentName);
         } catch(ServiceNotFoundException $e) {
-            throw new InvalidServiceException('Service "'. $originalService->getName() .'" tried to extend an unexisting service "'. $parentName .'".');
+            throw new InvalidServiceException('Service "'. $originalService->getName() .'" tried to extend an inexisting service "'. $parentName .'".', 0, $e);
         }
 
         if ($parent instanceof ObjectService || $parent instanceof FactoryService) {
@@ -157,8 +168,7 @@ class ServicesResolver
             try {
                 $factoryServiceName = $this->parametersResolver->resolve($service->getFactoryService());
                 $factoryService = $this->container->get($factoryServiceName);
-                $factoryArguments = $this->parseArguments($service->getFactoryArguments());
-                $factoryArguments = $this->resolveArguments($factoryArguments);
+                $factoryArguments = $this->argumentsResolver->resolve($service->getFactoryArguments());
                 return call_user_func_array(array($factoryService, $service->getFactoryMethod()), $factoryArguments);
             } catch(Exception $e) {
                 throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" due to: '. $e->getMessage(), 0, $e);
@@ -178,22 +188,18 @@ class ServicesResolver
             throw new InvalidServiceException('The class '. $class .' for service "'. $service->getName() .'" is not instantiable!');
         }
 
-        // parse constructor arguments
-        $arguments = $this->parseArguments($service->getArguments());
-
         $resolver = $this;
-        $instantiateClosure = function() use ($class, $classReflection, $arguments, $resolver) {
+        $arguments = $service->getArguments();
+        $instantiateClosure = function() use ($class, $arguments, $classReflection, $resolver) {
             // if no constructor arguments then simply instantiate the class using "new" keyword
             if (empty($arguments)) {
                 return new $class();
             }
 
-            // do resolve all service links in the arguments
-            $arguments = $resolver->resolveArguments($arguments);
+            $arguments = $this->argumentsResolver->resolve($arguments);
 
             // we need to instantiate using reflection
             $instance = $classReflection->newInstanceArgs($arguments);
-
             return $instance;
         };
 
@@ -221,106 +227,9 @@ class ServicesResolver
 
         $instance = $instance ? $instance : $service->getInstance();
 
-        $arguments = $this->parseArguments($call['arguments']);
-        $arguments = $this->resolveArguments($arguments);
+        $arguments = $this->argumentsResolver->resolve($call['arguments']);
 
         return call_user_func_array(array($instance, $call['method']), $arguments);
-    }
-
-    /**
-     * Parses arguments definition by resolving parameters and parsing service links.
-     * 
-     * @param  string|array $argument Argument(s) to be parsed.
-     * @return mixed
-     */
-    public function parseArguments($argument) {
-        // make it work recursively for arrays
-        if (is_array($argument)) {
-            foreach($argument as $i => $arg) {
-                $argument[$i] = $this->parseArguments($arg);
-            }
-            return $argument;
-        }
-
-        // if string then resolve possible parameters
-        if (is_string($argument)) {
-            $argument = $this->parametersResolver->resolve($argument);
-        }
-
-        // and maybe it's a reference to another service?
-        $argument = $this->parseServiceLink($argument);
-
-        return $argument;
-    }
-
-    /**
-     * Parses arguments in order to find lone '@' sign which references the "self" service.
-     *
-     * @param  Service $service  Service that should be references as "@".
-     * @param  string|array $argument Arguments to be parsed.
-     * @return mixed
-     */
-    public function parseSelfInArgument(Service $service, $argument) {
-        if (is_array($argument)) {
-            foreach($argument as $i => $arg) {
-                $argument[$i] = $this->parseSelfInArgument($service, $arg);
-            }
-            return $argument;
-        }
-
-        if ($argument === '@') {
-            $argument = new ServiceLink($service->getName(), false);
-        }
-
-        return $argument;
-    }
-
-    /**
-     * Parses a link to a service.
-     * 
-     * @param  string $link Service link to be parsed.
-     * @return string|object
-     */
-    public function parseServiceLink($link) {
-        // only strings are linkable
-        if (!is_string($link)) {
-            return $link;
-        }
-
-        // if doesn't start with a @ then definetely not a link
-        if (strpos($link, '@') !== 0) {
-            return $link;
-        }
-
-        $name = mb_substr($link, 1);
-        $optional = strrpos($name, '?') === mb_strlen($name) - 1;
-        $name = $optional ? mb_substr($name, 0, mb_strlen($name) - 1) : $name;
-
-        return new ServiceLink($name, $optional);
-    }
-
-    public function resolveArguments($argument) {
-        // make it work recursively for arrays
-        if (is_array($argument)) {
-            foreach($argument as $i => $arg) {
-                $argument[$i] = $this->resolveArguments($arg);
-            }
-            return $argument;
-        }
-
-        // for reals only service links need to be resolved
-        if ($argument instanceof ServiceLink) {
-            $serviceName = $argument->getName();
-
-            // if no such service, but its optional then just return null
-            if (!$this->container->has($serviceName) && $argument->isOptional()) {
-                return null;
-            }
-
-            return $this->container->get($serviceName);
-        }
-
-        return $argument;
     }
 
 }

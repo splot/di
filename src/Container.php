@@ -18,6 +18,7 @@ use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
 use Splot\DependencyInjection\Exceptions\PrivateServiceException;
 use Splot\DependencyInjection\Exceptions\ReadOnlyException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
+use Splot\DependencyInjection\Resolver\ArgumentsResolver;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServicesResolver;
 use Splot\DependencyInjection\ContainerInterface;
@@ -104,11 +105,19 @@ class Container implements ContainerInterface
     protected $servicesResolver;
 
     /**
+     * Arguments resolver.
+     * 
+     * @var ArgumentsResolver
+     */
+    protected $argumentsResolver;
+
+    /**
      * Constructor.
      */
     public function __construct() {
         $this->parametersResolver = new ParametersResolver($this);
-        $this->servicesResolver = new ServicesResolver($this, $this->parametersResolver);
+        $this->argumentsResolver = new ArgumentsResolver($this, $this->parametersResolver);
+        $this->servicesResolver = new ServicesResolver($this, $this->parametersResolver, $this->argumentsResolver);
 
         // register itself
         $this->set('container', $this, array(
