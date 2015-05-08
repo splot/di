@@ -221,17 +221,6 @@ class Container implements ContainerInterface
     public function getDefinition($name) {
         $requestedName = $name;
         $name = $this->resolveServiceName($name);
-
-        // check in aliases first
-        if (isset($this->aliases[$requestedName])) {
-            $name = $this->aliases[$requestedName];
-        }
-
-        if (!isset($this->services[$name])) {
-            $debugName = '"'. $requestedName .'"'. ($name !== $requestedName ? ' (alias for: "'. $name .'")' : '');
-            throw new ServiceNotFoundException('Requested definition of an undefined service '. $debugName .'.');
-        }
-
         return $this->services[$name];
     }
 
