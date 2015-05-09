@@ -1067,6 +1067,19 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('foreverandever.something', $service->getName());
     }
 
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringInvalidFactoryService() {
+        $container = new Container();
+        $container->register('factory', $this->namedFactoryClass);
+        $container->register('factory_product', array(
+            'factory_service' => 'factory_not_found',
+            'factory_method' => 'provide'
+        ));
+        $container->get('factory_product');
+    }
+
     public function testNotifyingAService() {
         $container = new Container();
         $container->register('collection', $this->collectionServiceClass);
