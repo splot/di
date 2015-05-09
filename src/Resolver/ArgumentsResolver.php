@@ -40,19 +40,16 @@ class ArgumentsResolver
      * other services (in the form of `@service_name`).
      * 
      * @param  array|mixed $argument   Either an array of arguments or a single argument.
-     * @param  object $selfService     If the arguments can reference "self service", the service instance
-     *                                 should be passed here. It can be referenced in arguments as only `@` sign.
-     *                                 Default: `null`.
      * @param  string $selfServiceName If the arguments can reference "self service name", the name of
      *                                 such references service should be passed here. It can be referenced
-     *                                 in arguments as "@=" (TBD). Default: `null`.
+     *                                 in arguments as "@=". Default: `null`.
      * @return array|mixed
      */
-    public function resolve($argument, $selfService = null, $selfServiceName = null) {
+    public function resolve($argument, $selfServiceName = null) {
         // deeply resolve arguments
         if (is_array($argument)) {
             foreach($argument as $i => $arg) {
-                $argument[$i] = $this->resolve($arg, $selfService, $selfServiceName);
+                $argument[$i] = $this->resolve($arg, $selfServiceName);
             }
             return $argument;
         }
@@ -63,12 +60,15 @@ class ArgumentsResolver
         }
 
         // if possible to reference self in arguments then do it
-        if ($selfService !== null && $argument === '@') {
-            $argument = $selfService;
+        // (reference by name instead of getting the service now)
+        if ($selfServiceName !== null && $argument === '@') {
+            $argument = '@'. $selfServiceName;
         }
 
         // if possible to reference self name in arguments then do it
-        // @todo with test
+        if ($selfServiceName !== null && $argument === '@=') {
+            $argument = $selfServiceName;
+        }
         
         // and maybe referencing a different service?
         if (is_string($argument) && mb_substr($argument, 0, 1) === '@') {

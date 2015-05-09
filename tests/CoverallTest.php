@@ -160,12 +160,14 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
         $service = $this->container->get('collection_service');
         $this->assertInstanceOf($this->collectionServiceClass, $service);
         $collection = $service->getServices();
-        $this->assertCount(4, $collection);
+        $this->assertCount(6, $collection);
         foreach(array(
             'item_one',
             'item_one.alias',
             'item_two',
-            'factory_product'
+            'factory_product',
+            'dependant',
+            'collection_service.item_self_referred'
         ) as $name) {
             $this->assertArrayHasKey($name, $collection);
             $this->assertInstanceOf($this->simpleServiceClass, $collection[$name]);

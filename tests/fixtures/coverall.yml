@@ -115,6 +115,7 @@ services:
         private: true
         notify:
             - ["collection_service", "addService", ["@", "item_two"]]
+            - ["collection_service", "nonExistentMethod", ["@"]]
 
     collection_service.item_dependent:
         class: %collection_service_dependant.class%
@@ -122,6 +123,11 @@ services:
             - @collection_service
         notify:
             - ["@collection_service", "addService", ["@", "dependant"]]
+
+    collection_service.item_self_referred:
+        class: %simple_service.class%
+        notify:
+            - ["collection_service", "addService", ["@", "@="]]
 
     simple_factory: %simple_factory.class%
 
@@ -150,16 +156,4 @@ services:
             - verbose
 
     named_factory.product.compact: ["@named_factory", "provide", ["compact"]]
-
-#    # e.g. how to register events
-#    event_manager:
-#        class: Splot\Framework\EventManager\EventManager
-#        arguments: ["@container"]
-#
-#    users_repository:
-#        class: Knit\Entity\Repository
-#        factory: ["@knit", "getRepository", ["Focusson\\Auth\\Entity\\User"]]
-#        notify:
-#            - ["event_manager", "subscribeService", ["Knit\\Events\\DidUpdateEntity", "users_repository", "onUpdate"]]
-#            - ["event_manager", "subscribeService", ["Knit\\Events\\DidDeleteEntity", "users_repository", "onDelete"]]
 

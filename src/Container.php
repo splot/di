@@ -19,6 +19,7 @@ use Splot\DependencyInjection\Exceptions\PrivateServiceException;
 use Splot\DependencyInjection\Exceptions\ReadOnlyException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ArgumentsResolver;
+use Splot\DependencyInjection\Resolver\NotificationsResolver;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServicesResolver;
 use Splot\DependencyInjection\ContainerInterface;
@@ -84,13 +85,6 @@ class Container implements ContainerInterface
     protected $loading = array();
 
     /**
-     * Notification queue for services that should be notified before they have been registered.
-     * 
-     * @var array
-     */
-    protected $notifyQueue = array();
-
-    /**
      * Parameters resolver.
      * 
      * @var ParametersResolver
@@ -103,6 +97,13 @@ class Container implements ContainerInterface
      * @var ServicesResolver
      */
     protected $servicesResolver;
+
+    /**
+     * Notifications resolver.
+     * 
+     * @var NotificationsResolver
+     */
+    protected $notificationsResolver;
 
     /**
      * Arguments resolver.
@@ -118,6 +119,7 @@ class Container implements ContainerInterface
         $this->parametersResolver = new ParametersResolver($this);
         $this->argumentsResolver = new ArgumentsResolver($this, $this->parametersResolver);
         $this->servicesResolver = new ServicesResolver($this, $this->parametersResolver, $this->argumentsResolver);
+        $this->notificationsResolver = new NotificationsResolver($this, $this->argumentsResolver);
 
         // register itself
         $this->set('container', $this, array(
@@ -199,7 +201,8 @@ class Container implements ContainerInterface
         // get service definition
         $service = $this->services[$name];
 
-        if ($service->isPrivate() && empty($this->loading)) {
+        if ($service->isPrivate() && empty($this->loading) && !$this->notificationsResolver->isResolvingQueue()) {
+            $this->loading = array();
             throw new PrivateServiceException('Requested private service '. $debugName .'.');
         }
 
@@ -209,8 +212,16 @@ class Container implements ContainerInterface
         // load this service
         $instance = $this->servicesResolver->resolve($service);
 
+        // enqueue the service for delivering any notifications directed at it,
+        // after the whole dependency tree has been resolved
+        $this->notificationsResolver->queueForResolving($service, $instance);
+
         // if loaded successfully then remove it from loading array
         unset($this->loading[$name]);
+
+        if (empty($this->loading)) {
+            $this->notificationsResolver->resolveQueue();
+        }
 
         return $instance;
     }
@@ -422,10 +433,19 @@ class Container implements ContainerInterface
         // do register the service
         $this->services[$service->getName()] = $service;
 
-        // register method calls on the service
+        // also register aliases
+        foreach($options['aliases'] as $alias) {
+            if ($this->has($alias)) {
+                throw new InvalidServiceException('Trying to overwrite a previously defined service with an alias "'. $alias .'" for "'. $service->getName() .'".');
+            }
+
+            $this->aliases[$alias] = $service->getName();
+        }
+
+        // register method calls on the service (setter injection)
         if (is_array($options['call']) && !empty($options['call'])) {
             foreach($options['call'] as $call) {
-                if (!isset($call[0]) || !is_string($call[0])) {
+                if (!isset($call[0]) || !is_string($call[0]) || empty($call[0])) {
                     throw new InvalidServiceException('Invalid method calls definition in definition of service "'. $service->getName() .'".');
                 }
 
@@ -437,78 +457,27 @@ class Container implements ContainerInterface
             }
         }
 
-        // handle notifying other services about this service existence
+        // register notifications
         if (is_array($options['notify']) && !empty($options['notify'])) {
             foreach($options['notify'] as $notify) {
-                if (!isset($notify[0]) || !is_string($notify[0])) {
-                    throw new InvalidServiceException('Invalid service name given to notify about existence of "'. $service->getName() .'".');
+                if (!isset($notify[0]) || !is_string($notify[0]) || empty($notify[0])) {
+                    throw new InvalidServiceException('Invalid service name given to notify by "'. $service->getName() .'".');
                 }
 
-                $notifyServiceName = ltrim($notify[0], '@');
+                $targetServiceName = ltrim($notify[0], '@');
 
-                if (!isset($notify[1]) || !is_string($notify[1])) {
-                    throw new InvalidServiceException('Invalid method name to call given to notify about existence of "'. $service->getName() .'".');
+                if (!isset($notify[1]) || !is_string($notify[1]) || empty($notify[1])) {
+                    throw new InvalidServiceException('Invalid method name given to notify "'. $targetServiceName .'" by "'. $service->getName() .'".');
                 }
 
-                $notifyMethodName = $notify[1];
+                $methodName = $notify[1];
 
                 $arguments = isset($notify[2])
                     ? (is_array($notify[2])
                         ? $notify[2] : array($notify[2])
                     ) : array();
 
-                foreach($arguments as $i => $argument) {
-                    $arguments[$i] = $argument === '@' ? '@'. $service->getName() : $argument;
-                }
-
-                // if the service is already registered then add defined method call
-                if ($this->has($notifyServiceName)) {
-                    $notifyService = $this->services[$notifyServiceName];
-                    $notifyService->addMethodCall($notifyMethodName, $arguments);
-
-                    // if this service is already instantiated then call methods directly on it
-                    if ($notifyService->isInstantiated()) {
-                        $this->servicesResolver->callMethod($notifyService, array(
-                            'method' => $notifyMethodName,
-                            'arguments' => $arguments
-                        ));
-                    }
-
-                // if the service hasn't been registered yet then wait for it in a queue
-                } else {
-                    if (!isset($this->notifyQueue[$notifyServiceName])) {
-                        $this->notifyQueue[$notifyServiceName] = array();
-                    }
-                
-                    $this->notifyQueue[$notifyServiceName][] = array(
-                        'service' => $notifyServiceName,
-                        'method' => $notifyMethodName,
-                        'arguments' => $arguments
-                    );
-                }
-            }
-        }
-
-        // maybe there are some notifications already waiting for this service?
-        if (isset($this->notifyQueue[$service->getName()])) {
-            foreach($this->notifyQueue[$service->getName()] as $notify) {
-                $service->addMethodCall($notify['method'], $notify['arguments']);
-            }
-        }
-
-        // also register aliases
-        foreach($options['aliases'] as $alias) {
-            if ($this->has($alias)) {
-                throw new InvalidServiceException('Trying to overwrite a previously defined service with an alias "'. $alias .'" for "'. $service->getName() .'".');
-            }
-
-            $this->aliases[$alias] = $service->getName();
-
-            // maybe there are some notifications waiting for this service alias?
-            if (isset($this->notifyQueue[$alias])) {
-                foreach($this->notifyQueue[$alias] as $notify) {
-                    $service->addMethodCall($notify['method'], $notify['arguments']);
-                }
+                $this->notificationsResolver->registerNotification($service->getName(), $targetServiceName, $methodName, $arguments);
             }
         }
 

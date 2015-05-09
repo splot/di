@@ -121,7 +121,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $simple = new SimpleService();
         $container->set('simple', $simple);
         // overwrite
-        $container->set('simple', $this->simpleServiceClass);
+        $container->register('simple', $this->simpleServiceClass);
         $this->assertNotSame($simple, $container->get('simple'));
     }
 
@@ -603,6 +603,43 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         ));
 
         $this->assertInstanceOf($this->parametrizedServiceClass, $container->get('parametrized'));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringInvalidNotification() {
+        $container = new Container();
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array()
+            )
+        ));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringInvalidNotificationMethodName() {
+        $container = new Container();
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('container')
+            )
+        ));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testOverwritingByAlias() {
+        $container = new Container();
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'aliases' => array('container')
+        ));
     }
 
     /**
