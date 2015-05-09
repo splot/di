@@ -154,7 +154,36 @@ class NotificationsResolver
         }
 
         $arguments = $this->argumentsResolver->resolve($arguments, $senderName);
-        call_user_func_array(array($targetService, $methodName), $arguments);
+
+        switch(count($arguments)) {
+            case 0:
+                $targetService->$methodName();
+            break;
+
+            case 1:
+                $targetService->$methodName($arguments[0]);
+            break;
+
+            case 2:
+                $targetService->$methodName($arguments[0], $arguments[1]);
+            break;
+
+            case 3:
+                $targetService->$methodName($arguments[0], $arguments[1], $arguments[2]);
+            break;
+
+            case 4:
+                $targetService->$methodName($arguments[0], $arguments[1], $arguments[2], $arguments[3]);
+            break;
+
+            case 5:
+                $targetService->$methodName($arguments[0], $arguments[1], $arguments[2], $arguments[3], $arguments[4]);
+            break;
+
+            default:
+                call_user_func_array(array($targetService, $methodName), $arguments);
+        }
+
         return true;
     }
 

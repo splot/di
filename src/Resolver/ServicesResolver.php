@@ -91,7 +91,7 @@ class ServicesResolver
         try {
             $methodCalls = $service->getMethodCalls();
             foreach($methodCalls as $call) {
-                $this->callMethod($service, $call, $instance);
+                $this->callMethod($service, $call['method'], $call['arguments'], $instance);
             }
         } catch(CircularReferenceException $e) {
             throw $e;
@@ -150,12 +150,14 @@ class ServicesResolver
     protected function instantiateService(Service $service) {
         // if already resolved the definition, then just call the resolved closure factory
         if (isset($this->instantiateClosuresCache[$service->getName()])) {
-            return call_user_func($this->instantiateClosuresCache[$service->getName()]);
+            $instantiateClosure = $this->instantiateClosuresCache[$service->getName()];
+            return $instantiateClosure();
         }
 
         // deal with closure services
         if ($service instanceof ClosureService) {
-            return call_user_func_array($service->getClosure(), array($this->container));
+            $serviceClosure = $service->getClosure();
+            return $serviceClosure($this->container);
         }
 
         // deal with object services
@@ -167,9 +169,9 @@ class ServicesResolver
         if ($service instanceof FactoryService) {
             try {
                 $factoryServiceName = $this->parametersResolver->resolve($service->getFactoryService());
+                $factoryServiceDefinition = $this->container->getDefinition($factoryServiceName);
                 $factoryService = $this->container->get($factoryServiceName);
-                $factoryArguments = $this->argumentsResolver->resolve($service->getFactoryArguments());
-                return call_user_func_array(array($factoryService, $service->getFactoryMethod()), $factoryArguments);
+                return $this->callMethod($factoryServiceDefinition, $service->getFactoryMethod(), $service->getFactoryArguments(), $factoryService);
             } catch(Exception $e) {
                 throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" due to: '. $e->getMessage(), 0, $e);
             }
@@ -181,25 +183,44 @@ class ServicesResolver
             throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because class '. $class .' was not found.');
         }
 
-        // we need some more information about the class, so we need to use reflection
-        $classReflection = new ReflectionClass($class);
-
-        if (!$classReflection->isInstantiable()) {
-            throw new InvalidServiceException('The class '. $class .' for service "'. $service->getName() .'" is not instantiable!');
-        }
-
-        $resolver = $this;
+        $argumentsResolver = $this->argumentsResolver;
         $arguments = $service->getArguments();
-        $instantiateClosure = function() use ($class, $arguments, $classReflection, $resolver) {
-            // if no constructor arguments then simply instantiate the class using "new" keyword
-            if (empty($arguments)) {
-                return new $class();
+        $instantiateClosure = function() use ($class, $arguments, $argumentsResolver) {
+            $arguments = $argumentsResolver->resolve($arguments);
+
+            // use different methods of instantiation based on number of arguments
+            // this is to avoid using Reflection
+            switch(count($arguments)) {
+                case 0:
+                    $instance = new $class();
+                break;
+
+                case 1:
+                    $instance = new $class($arguments[0]);
+                break;
+
+                case 2:
+                    $instance = new $class($arguments[0], $arguments[1]);
+                break;
+
+                case 3:
+                    $instance = new $class($arguments[0], $arguments[1], $arguments[2]);
+                break;
+
+                case 4:
+                    $instance = new $class($arguments[0], $arguments[1], $arguments[2], $arguments[3]);
+                break;
+
+                case 5:
+                    $instance = new $class($arguments[0], $arguments[1], $arguments[2], $arguments[3], $arguments[4]);
+                break;
+
+                default:
+                    // for more arguments give up and just instantiate using reflection
+                    $classReflection = new ReflectionClass($class);
+                    $instance = $classReflection->newInstanceArgs($arguments);
             }
 
-            $arguments = $this->argumentsResolver->resolve($arguments);
-
-            // we need to instantiate using reflection
-            $instance = $classReflection->newInstanceArgs($arguments);
             return $instance;
         };
 
@@ -207,29 +228,59 @@ class ServicesResolver
         $this->instantiateClosuresCache[$service->getName()] = $instantiateClosure;
 
         // and finally call it
-        return call_user_func($instantiateClosure);
+        return $instantiateClosure();
     }
 
     /**
      * Call a method on a service.
      * 
      * @param  Service $service Service to call a method on.
-     * @param  array   $call    Method call parameters (`method` and `arguments`).
+     * @param  string  $methodName Name of the method to call on the service.
+     * @param  array   $arguments [optional] Arguments to call the method with. Default: `array()`.
      * @param  object  $instance [optional] Service object instance. Should be passed for all non-singleton services.
      * @return mixed
      *
      * @throws RuntimeException When trying to call a method on a service that hasn't been instantiated yet.
      */
-    public function callMethod(Service $service, array $call, $instance = null) {
+    public function callMethod(Service $service, $methodName, array $arguments = array(), $instance = null) {
         if ($instance === null && !$service->isInstantiated()) {
-            throw new RuntimeException('Cannot call a method of a service that has not been instantiated yet, when trying to call "::'. $call['method'] .'" on "'. $service->getName() .'".');
+            throw new RuntimeException('Cannot call a method of a service that has not been instantiated yet, when trying to call "::'. $methodName .'" on "'. $service->getName() .'".');
         }
 
         $instance = $instance ? $instance : $service->getInstance();
 
-        $arguments = $this->argumentsResolver->resolve($call['arguments']);
+        $arguments = $this->argumentsResolver->resolve($arguments);
 
-        return call_user_func_array(array($instance, $call['method']), $arguments);
+        switch(count($arguments)) {
+            case 0:
+                $result = $instance->$methodName();
+            break;
+
+            case 1:
+                $result = $instance->$methodName($arguments[0]);
+            break;
+
+            case 2:
+                $result = $instance->$methodName($arguments[0], $arguments[1]);
+            break;
+
+            case 3:
+                $result = $instance->$methodName($arguments[0], $arguments[1], $arguments[2]);
+            break;
+
+            case 4:
+                $result = $instance->$methodName($arguments[0], $arguments[1], $arguments[2], $arguments[3]);
+            break;
+
+            case 5:
+                $result = $instance->$methodName($arguments[0], $arguments[1], $arguments[2], $arguments[3], $arguments[4]);
+            break;
+
+            default:
+                $result = call_user_func_array(array($instance, $methodName), $arguments);
+        }
+
+        return $result;
     }
 
 }
