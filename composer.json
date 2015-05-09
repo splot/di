@@ -15,6 +15,11 @@
         "container-interop/container-interop": "~1.0",
         "symfony/yaml": ">=2.1,<3.0"
     },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "0.7.x-dev"
+        }
+    },
     "autoload": {
         "psr-4": {
             "Splot\\DependencyInjection\\Tests\\": "tests/",
