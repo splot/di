@@ -147,9 +147,11 @@ class ServicesResolver
      * @return object
      */
     protected function instantiateService(Service $service) {
+        $name = $service->getName();
+
         // if already resolved the definition, then just call the resolved closure factory
-        if (isset($this->instantiateClosuresCache[$service->getName()])) {
-            $instantiateClosure = $this->instantiateClosuresCache[$service->getName()];
+        if (isset($this->instantiateClosuresCache[$name])) {
+            $instantiateClosure = $this->instantiateClosuresCache[$name];
             return $instantiateClosure();
         }
 
@@ -172,62 +174,87 @@ class ServicesResolver
                 $factoryService = $this->container->get($factoryServiceName);
                 return $this->callMethod($factoryServiceDefinition, $service->getFactoryMethod(), $service->getFactoryArguments(), $factoryService);
             } catch(Exception $e) {
-                throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" due to: '. $e->getMessage(), 0, $e);
+                throw new InvalidServiceException('Could not instantiate service "'. $name .'" due to: '. $e->getMessage(), 0, $e);
             }
         }
 
         // class can be defined as a parameter
         $class = $this->parametersResolver->resolve($service->getClass());
         if (!class_exists($class)) {
-            throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because class '. $class .' was not found.');
+            throw new InvalidServiceException('Could not instantiate service "'. $name .'" because class '. $class .' was not found.');
         }
 
         $argumentsResolver = $this->argumentsResolver;
-        $arguments = $service->getArguments();
-        $instantiateClosure = function() use ($class, $arguments, $argumentsResolver) {
-            $arguments = $argumentsResolver->resolve($arguments);
-
-            // use different methods of instantiation based on number of arguments
-            // this is to avoid using Reflection
-            switch(count($arguments)) {
-                case 0:
-                    $instance = new $class();
-                break;
-
-                case 1:
-                    $instance = new $class($arguments[0]);
-                break;
-
-                case 2:
-                    $instance = new $class($arguments[0], $arguments[1]);
-                break;
-
-                case 3:
-                    $instance = new $class($arguments[0], $arguments[1], $arguments[2]);
-                break;
-
-                case 4:
-                    $instance = new $class($arguments[0], $arguments[1], $arguments[2], $arguments[3]);
-                break;
-
-                case 5:
-                    $instance = new $class($arguments[0], $arguments[1], $arguments[2], $arguments[3], $arguments[4]);
-                break;
-
-                default:
-                    // for more arguments give up and just instantiate using reflection
-                    $classReflection = new ReflectionClass($class);
-                    $instance = $classReflection->newInstanceArgs($arguments);
-            }
-
-            return $instance;
-        };
+        $instantiateClosure = $this->createInstantiationClosure($class, $service->getArguments());
 
         // cache this closure
-        $this->instantiateClosuresCache[$service->getName()] = $instantiateClosure;
+        $this->instantiateClosuresCache[$name] = $instantiateClosure;
 
         // and finally call it
         return $instantiateClosure();
+    }
+
+    /**
+     * Creates a closure that will instantiate the given class with given arguments.
+     * 
+     * @param  string $class     Class name to be instantiated.
+     * @param  array  $arguments [optional] Arguments to instantiate with. Default: `array()`.
+     * @return Closure
+     */
+    protected function createInstantiationClosure($class, array $arguments = array()) {
+        $argumentsResolver = $this->argumentsResolver;
+
+        switch(count($arguments)) {
+            case 0:
+                $closure = function() use ($class) {
+                    return new $class();
+                };
+            break;
+
+            case 1:
+                $closure = function() use ($class, $arguments, $argumentsResolver) {
+                    $arguments = $argumentsResolver->resolve($arguments);
+                    return new $class($arguments[0]);
+                };
+            break;
+
+            case 2:
+                $closure = function() use ($class, $arguments, $argumentsResolver) {
+                    $arguments = $argumentsResolver->resolve($arguments);
+                    return new $class($arguments[0], $arguments[1]);
+                };
+            break;
+
+            case 3:
+                $closure = function() use ($class, $arguments, $argumentsResolver) {
+                    $arguments = $argumentsResolver->resolve($arguments);
+                    return new $class($arguments[0], $arguments[1], $arguments[2]);
+                };
+            break;
+
+            case 4:
+                $closure = function() use ($class, $arguments, $argumentsResolver) {
+                    $arguments = $argumentsResolver->resolve($arguments);
+                    return new $class($arguments[0], $arguments[1], $arguments[2], $arguments[3]);
+                };
+            break;
+
+            case 5:
+                $closure = function() use ($class, $arguments, $argumentsResolver) {
+                    $arguments = $argumentsResolver->resolve($arguments);
+                    return new $class($arguments[0], $arguments[1], $arguments[2], $arguments[3], $arguments[4]);
+                };
+            break;
+
+            default:
+                $classReflection = new ReflectionClass($class);
+                $closure = function() use ($arguments, $argumentsResolver, $classReflection) {
+                    $arguments = $argumentsResolver->resolve($arguments);
+                    return $classReflection->newInstanceArgs($arguments);
+                };
+        }
+
+        return $closure;
     }
 
     /**
