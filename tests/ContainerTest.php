@@ -19,6 +19,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     private $simpleServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService';
     private $abstractServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\AbstractService';
     private $argumentedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ArgumentedService';
+    private $veryArgumentedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\VeryArgumentedService';
     private $parametrizedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService';
     private $calledServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\CalledService';
     private $extendedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService';
@@ -198,6 +199,49 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('splot', $argumented->name);
         $this->assertEquals(2, $argumented->version);
         $this->assertEquals('alpha', $argumented->stability);
+    }
+
+    public function testRegisteringWithALotOfArguments() {
+        $container = new Container();
+        $container->register('very_argumented', array(
+            'class' => $this->veryArgumentedServiceClass,
+            'arguments' => array(
+                'splot',
+                2,
+                'alpha',
+                true,
+                'Copyright (c) John Doe',
+                23
+            )
+        ));
+        $argumented = $container->get('very_argumented');
+        $this->assertInstanceOf($this->veryArgumentedServiceClass, $argumented);
+    }
+
+    public function testRegisteringWithALotOfArgumentsInCalls() {
+        $container = new Container();
+        $container->register('very_argumented', array(
+            'class' => $this->veryArgumentedServiceClass,
+            'arguments' => array(
+                'splot',
+                2,
+                'alpha',
+                true,
+                'Copyright (c) John Doe',
+                23
+            ),
+            'call' => array(
+                array('setEverything', array()),
+                array('setEverything', array('di')),
+                array('setEverything', array('di', 3)),
+                array('setEverything', array('di', 3, 'beta')),
+                array('setEverything', array('di', 3, 'beta', false)),
+                array('setEverything', array('di', 3, 'beta', false, 'Copyleft')),
+                array('setEverything', array('di', 3, 'beta', false, 'Copyleft', 123))
+            )
+        ));
+        $argumented = $container->get('very_argumented');
+        $this->assertInstanceOf($this->veryArgumentedServiceClass, $argumented);
     }
 
     public function testRegisteringWithParametersInConstructorInjection() {
@@ -1201,6 +1245,44 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
 
         $collection = $container->get('collection');
         $this->assertCount(4, $collection->getServices());
+    }
+
+    public function testNotifyingServiceWithLotsOfArguments() {
+        $container = new Container();
+        $container->register('very_argumented', array(
+            'class' => $this->veryArgumentedServiceClass,
+            'arguments' => array(
+                'splot',
+                2,
+                'alpha',
+                true,
+                'Copyright (c) John Doe',
+                23
+            ),
+            'call' => array(
+                array('setEverything', array()),
+                array('setEverything', array('di')),
+                array('setEverything', array('di', 3)),
+                array('setEverything', array('di', 3, 'beta')),
+                array('setEverything', array('di', 3, 'beta', false)),
+                array('setEverything', array('di', 3, 'beta', false, 'Copyleft')),
+                array('setEverything', array('di', 3, 'beta', false, 'Copyleft', 123))
+            )
+        ));
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('@very_argumented', 'setEverything', array()),
+                array('@very_argumented', 'setEverything', array('di')),
+                array('@very_argumented', 'setEverything', array('di', 3)),
+                array('@very_argumented', 'setEverything', array('di', 3, 'beta')),
+                array('@very_argumented', 'setEverything', array('di', 3, 'beta', false)),
+                array('@very_argumented', 'setEverything', array('di', 3, 'beta', false, 'Copyleft')),
+                array('@very_argumented', 'setEverything', array('di', 3, 'beta', false, 'Copyleft', 123))
+            )
+        ));
+        $argumented = $container->get('very_argumented');
+        $this->assertInstanceOf($this->veryArgumentedServiceClass, $argumented);
     }
 
     public function testInjectArrayFromParameter() {
