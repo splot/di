@@ -413,8 +413,7 @@ class Container implements ContainerInterface
 
         // if just an alias then add to list of aliases
         if ($options['alias']) {
-            $this->aliases[$service->getName()] = $options['alias'];
-            return;
+            return $this->addAlias($service->getName(), $options['alias']);
         }
 
         // if factory then replace the service instance
@@ -435,11 +434,7 @@ class Container implements ContainerInterface
 
         // also register aliases
         foreach($options['aliases'] as $alias) {
-            if ($this->has($alias)) {
-                throw new InvalidServiceException('Trying to overwrite a previously defined service with an alias "'. $alias .'" for "'. $service->getName() .'".');
-            }
-
-            $this->aliases[$alias] = $service->getName();
+            $this->addAlias($alias, $service->getName());
         }
 
         // register method calls on the service (setter injection)
@@ -520,6 +515,22 @@ class Container implements ContainerInterface
         }
 
         return $options;
+    }
+
+    /**
+     * Adds an alias for a service.
+     * 
+     * @param string $alias Alias name.
+     * @param string $for   Name of the target/aliased service.
+     */
+    protected function addAlias($alias, $for) {
+        if ($this->has($alias)) {
+            throw new InvalidServiceException('Trying to overwrite a previously defined service with an alias "'. $alias .'" for "'. $for .'".');
+        }
+
+        $this->aliases[$alias] = $for;
+
+        $this->notificationsResolver->rerouteNotifications($alias, $for);
     }
 
     /**

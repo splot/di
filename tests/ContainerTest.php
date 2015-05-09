@@ -1178,6 +1178,31 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($container->get('one'), $collection->getService('one'));
     }
 
+    public function testNotifyingServiceByAlias() {
+        $container = new Container();
+        $container->register('collection', array(
+            'class' => $this->collectionServiceClass,
+            'aliases' => array('list', 'simple_services')
+        ));
+
+        $container->register('lipsum', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('collection', 'addService', array('@', '@=')),
+                array('list', 'addService', array('@', 'lipsum.list')),
+                array('simple_services', 'addService', array('@', 'lipsum.simple_services')),
+                array('set_of_services', 'addService', array('@', 'lipsum.set_of_services'))
+            )
+        ));
+
+        $container->register('set_of_services', array(
+            'alias' => 'list'
+        ));
+
+        $collection = $container->get('collection');
+        $this->assertCount(4, $collection->getServices());
+    }
+
     public function testInjectArrayFromParameter() {
         $container = new Container();
         $container->setParameter('names', array('name1', 'name2', 'name3', 'name4'));

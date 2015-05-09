@@ -74,6 +74,10 @@ class NotificationsResolver
         // then deliver this notification immediatelly
         try {
             $serviceDefinition = $this->container->getDefinition($targetServiceName);
+            
+            // $targetServiceName might be an alias, so let's use the real name
+            $targetServiceName = $serviceDefinition->getName();
+
             if ($serviceDefinition->isInstantiated()) {
                 $service = $serviceDefinition->getInstance();
                 return $this->deliverNotification($service, $senderName, $methodName, $arguments);
@@ -154,6 +158,33 @@ class NotificationsResolver
         return true;
     }
 
+    /**
+     * Reroutes notifications from one service name to another.
+     *
+     * This is especially used when a notification was referring to its target by an alias and the alias's target
+     * has just become known to the container.
+     * 
+     * @param  string $from Original notifications target.
+     * @param  string $to   New notifications target.
+     */
+    public function rerouteNotifications($from, $to) {
+        if (!isset($this->notifications[$from])) {
+            return;
+        }
+
+        // $to might also be an alias, so lets dig deeper
+        $to = $this->container->resolveServiceName($to);
+
+        foreach($this->notifications[$from] as $notification) {
+            $this->notifications[$to][] = $notification;
+        }
+    }
+
+    /**
+     * Returns information whether a notifications queue is currently being resolved.
+     * 
+     * @return boolean
+     */
     public function isResolvingQueue() {
         return $this->resolving;
     }
