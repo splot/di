@@ -38,6 +38,11 @@ class NotificationsResolver
      */
     protected $queue = array();
 
+    /**
+     * Flag for marking that notifications queue is currently being resolved.
+     * 
+     * @var boolean
+     */
     private $resolving = false;
 
     /**
@@ -100,6 +105,9 @@ class NotificationsResolver
         );
     }
 
+    /**
+     * Resolves the current queue of services by delivering notifications to them.
+     */
     public function resolveQueue() {
         if ($this->resolving) {
             return;
