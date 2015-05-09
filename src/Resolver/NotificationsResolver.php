@@ -124,7 +124,6 @@ class NotificationsResolver
             $serviceName = $service->getName();
             $instance = $item['instance'];
 
-            // @todo find known aliases for this item
             if (!isset($this->notifications[$serviceName])) {
                 continue;
             }

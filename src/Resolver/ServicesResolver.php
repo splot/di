@@ -15,7 +15,6 @@ use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Resolver\ArgumentsResolver;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
-use Splot\DependencyInjection\Resolver\ServiceLink;
 use Splot\DependencyInjection\Container;
 
 class ServicesResolver

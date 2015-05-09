@@ -234,7 +234,7 @@ class Container implements ContainerInterface
      */
     public function has($name) {
         try {
-            $resolvedName = $this->resolveServiceName($name);
+            $this->resolveServiceName($name);
         } catch(ServiceNotFoundException $e) {
             return false;
         }
@@ -250,7 +250,6 @@ class Container implements ContainerInterface
      * @throws ServiceNotFoundException When could not find a service with the given name.
      */
     public function getDefinition($name) {
-        $requestedName = $name;
         $name = $this->resolveServiceName($name);
         return $this->services[$name];
     }
