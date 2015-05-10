@@ -43,7 +43,7 @@ class NotificationsResolver
      * 
      * @var boolean
      */
-    private $resolving = false;
+    public $resolving = false;
 
     /**
      * Constructor.
@@ -76,11 +76,10 @@ class NotificationsResolver
             $serviceDefinition = $this->container->getDefinition($targetServiceName);
             
             // $targetServiceName might be an alias, so let's use the real name
-            $targetServiceName = $serviceDefinition->getName();
+            $targetServiceName = $serviceDefinition->name;
 
             if ($serviceDefinition->isInstantiated()) {
-                $service = $serviceDefinition->getInstance();
-                return $this->deliverNotification($service, $senderName, $methodName, $arguments);
+                return $this->deliverNotification($serviceDefinition->instance, $senderName, $methodName, $arguments);
             }
         } catch(ServiceNotFoundException $e) {}
 
@@ -96,15 +95,14 @@ class NotificationsResolver
     }
 
     /**
-     * Queues a service for receiving notifications when `::resolveQueue()` is called.
+     * Queues a service instance for receiving notifications when `::resolveQueue()` is called.
      * 
-     * @param  Service $service  Service definition.
+     * @param  string  $serviceName  Service name.
      * @param  object  $instance Instance of the target service.
      */
-    public function queueForResolving(Service $service, $instance) {
-        // store in the queue under a hash so that one service doesn't get queued twice
-        $this->queue[spl_object_hash($instance)] = array(
-            'service' => $service,
+    public function queueForResolving($serviceName, $instance) {
+        $this->queue[$serviceName] = array(
+            'name' => $serviceName,
             'instance' => $instance
         );
     }
@@ -120,8 +118,7 @@ class NotificationsResolver
         $this->resolving = true;
 
         while(($item = array_shift($this->queue)) !== null) {
-            $service = $item['service'];
-            $serviceName = $service->getName();
+            $serviceName = $item['name'];
             $instance = $item['instance'];
 
             if (!isset($this->notifications[$serviceName])) {
@@ -206,15 +203,6 @@ class NotificationsResolver
         foreach($this->notifications[$from] as $notification) {
             $this->notifications[$to][] = $notification;
         }
-    }
-
-    /**
-     * Returns information whether a notifications queue is currently being resolved.
-     * 
-     * @return boolean
-     */
-    public function isResolvingQueue() {
-        return $this->resolving;
     }
 
 }

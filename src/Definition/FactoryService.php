@@ -7,11 +7,11 @@ use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 class FactoryService extends Service
 {
 
-    protected $factoryService;
+    public $factoryService;
 
-    protected $factoryMethod;
+    public $factoryMethod;
 
-    protected $factoryArguments = array();
+    public $factoryArguments = array();
 
     public function __construct($name, $factoryService, $factoryMethod, array $factoryArguments = array()) {
         parent::__construct($name);

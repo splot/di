@@ -189,20 +189,21 @@ class Container implements ContainerInterface
     public function get($name) {
         $requestedName = $name;
         $name = $this->resolveServiceName($name);
-        $debugName = '"'. $requestedName .'"'. ($name !== $requestedName ? ' (alias for: "'. $name .'")' : '');
 
         // if this service is already on the loading list then it means there's a circular reference somewhere
         if (isset($this->loading[$name])) {
             $loadingServices = implode(', ', array_keys($this->loading));
             $this->loading = array();
+            $debugName = '"'. $requestedName .'"'. ($name !== $requestedName ? ' (alias for: "'. $name .'")' : '');
             throw new CircularReferenceException('Circular reference detected during loading of chained services '. $loadingServices .'. Referenced service: '. $debugName .'.');
         }
 
         // get service definition
         $service = $this->services[$name];
 
-        if ($service->isPrivate() && empty($this->loading) && !$this->notificationsResolver->isResolvingQueue()) {
+        if ($service->private && empty($this->loading) && !$this->notificationsResolver->resolving) {
             $this->loading = array();
+            $debugName = '"'. $requestedName .'"'. ($name !== $requestedName ? ' (alias for: "'. $name .'")' : '');
             throw new PrivateServiceException('Requested private service '. $debugName .'.');
         }
 
@@ -214,7 +215,7 @@ class Container implements ContainerInterface
 
         // enqueue the service for delivering any notifications directed at it,
         // after the whole dependency tree has been resolved
-        $this->notificationsResolver->queueForResolving($service, $instance);
+        $this->notificationsResolver->queueForResolving($name, $instance);
 
         // if loaded successfully then remove it from loading array
         unset($this->loading[$name]);
