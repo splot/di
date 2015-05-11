@@ -36,7 +36,7 @@ class NotificationsResolver
      * 
      * @var array
      */
-    protected $queue = array();
+    public $queue = array();
 
     /**
      * Flag for marking that notifications queue is currently being resolved.
@@ -128,6 +128,8 @@ class NotificationsResolver
             while(($notification = array_shift($this->notifications[$serviceName])) !== null) {
                 $this->deliverNotification($instance, $notification['sender'], $notification['method'], $notification['arguments']);
             }
+            
+            unset($this->notifications[$serviceName]);
         }
 
         $this->resolving = false;

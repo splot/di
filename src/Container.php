@@ -215,7 +215,10 @@ class Container implements ContainerInterface
 
         // enqueue the service for delivering any notifications directed at it,
         // after the whole dependency tree has been resolved
-        $this->notificationsResolver->queueForResolving($name, $instance);
+        $this->notificationsResolver->queue[$name] = array(
+            'name' => $name,
+            'instance' => $instance
+        );
 
         // if loaded successfully then remove it from loading array
         unset($this->loading[$name]);
