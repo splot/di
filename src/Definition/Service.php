@@ -161,4 +161,18 @@ class Service
         $this->instance = null;
     }
 
+    public function __sleep() {
+        return array(
+            'name',
+            'class',
+            'arguments',
+            'methodCalls',
+            'extends',
+            'singleton',
+            'abstract',
+            'readOnly',
+            'private'
+        );
+    }
+
 }

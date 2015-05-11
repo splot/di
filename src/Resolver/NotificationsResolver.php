@@ -28,7 +28,7 @@ class NotificationsResolver
      * 
      * @var array
      */
-    protected $notifications = array();
+    public $notifications = array();
 
     /**
      * Queue of services for which notifications should be resolved in the next

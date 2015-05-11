@@ -64,4 +64,12 @@ class FactoryService extends Service
         return $this->factoryArguments;
     }
 
+    public function __sleep() {
+        return array_merge(parent::__sleep(), array(
+            'factoryService',
+            'factoryMethod',
+            'factoryArguments'
+        ));
+    }
+
 }
