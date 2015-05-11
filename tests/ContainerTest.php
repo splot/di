@@ -1285,6 +1285,24 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertInstanceOf($this->veryArgumentedServiceClass, $argumented);
     }
 
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testNotifyingServiceWithWrongMethod() {
+        $container = new Container();
+
+        $container->register('collection', $this->collectionServiceClass);
+
+        $container->register('not_a_good_service', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('collection', 'addObject', array('@', '@='))
+            )
+        ));
+
+        $container->get('collection');
+    }
+
     public function testInjectArrayFromParameter() {
         $container = new Container();
         $container->setParameter('names', array('name1', 'name2', 'name3', 'name4'));

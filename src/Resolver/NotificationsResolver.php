@@ -1,6 +1,7 @@
 <?php
 namespace Splot\DependencyInjection\Resolver;
 
+use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
 use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Resolver\ArgumentsResolver;
@@ -79,7 +80,7 @@ class NotificationsResolver
             $targetServiceName = $serviceDefinition->name;
 
             if ($serviceDefinition->isInstantiated()) {
-                return $this->deliverNotification($serviceDefinition->instance, $senderName, $methodName, $arguments);
+                return $this->deliverNotification($targetServiceName, $serviceDefinition->instance, $senderName, $methodName, $arguments);
             }
         } catch(ServiceNotFoundException $e) {}
 
@@ -126,7 +127,7 @@ class NotificationsResolver
             }
 
             while(($notification = array_shift($this->notifications[$serviceName])) !== null) {
-                $this->deliverNotification($instance, $notification['sender'], $notification['method'], $notification['arguments']);
+                $this->deliverNotification($serviceName, $instance, $notification['sender'], $notification['method'], $notification['arguments']);
             }
             
             unset($this->notifications[$serviceName]);
@@ -139,16 +140,17 @@ class NotificationsResolver
      * Delivers a notification by calling the given object's method with given arguments.
      *
      * Returns `false` if notification couldn't be delivered, `true` otherwise.
-     * 
-     * @param  object $targetService A target service instance.
+     *
+     * @param  string $targetServiceName The target service name.
+     * @param  object $targetService The target service instance.
      * @param  string $senderName    Name of the service that sent this notification.
      * @param  string $methodName    Name of the method that should be called.
      * @param  array  $arguments     The method arguments. Default: `array()`.
      * @return boolean
      */
-    public function deliverNotification($targetService, $senderName, $methodName, array $arguments = array()) {
+    public function deliverNotification($targetServiceName, $targetService, $senderName, $methodName, array $arguments = array()) {
         if (!is_object($targetService) || !method_exists($targetService, $methodName)) {
-            return false;
+            throw new InvalidServiceException('Could not deliver notification to service "'. $targetServiceName .'" because the method "'. $methodName .'()" does not exist in it. Sender: "'. $senderName .'".');
         }
 
         $arguments = $this->argumentsResolver->resolve($arguments, $senderName);

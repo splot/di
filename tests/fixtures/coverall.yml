@@ -115,7 +115,6 @@ services:
         private: true
         notify:
             - ["collection_service", "addService", ["@", "item_two"]]
-            - ["collection_service", "nonExistentMethod", ["@"]]
 
     collection_service.item_dependent:
         class: %collection_service_dependant.class%
