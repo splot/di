@@ -84,7 +84,15 @@ class ServicesResolver
         $instance = $this->instantiateService($service);
         // setting the instance already here will help circular reference via setter injection working
         // but only for singleton services
-        $service->setInstance($instance);
+        // $service now might be a clone because of `::resolveHierarchy()` and therefore this instance
+        // reference would be lost - so let's get the original definition and update it
+        if ($service->isSingleton() && $service->isExtending()) {
+            $originalService = $this->container->getDefinition($service->getName());
+            $originalService->setSingleton(true);
+            $originalService->setInstance($instance);
+        } else {
+            $service->setInstance($instance);
+        }
 
         // if there are any method calls, then call them
         try {
