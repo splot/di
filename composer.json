@@ -15,6 +15,9 @@
         "container-interop/container-interop": "~1.0",
         "symfony/yaml": ">=2.1,<3.0"
     },
+    "require-dev": {
+        "phpunit/phpunit": "~4.0"
+    },
     "extra": {
         "branch-alias": {
             "dev-release/0.9": "0.9.x-dev"
@@ -22,8 +25,12 @@
     },
     "autoload": {
         "psr-4": {
-            "Splot\\DependencyInjection\\Tests\\": "tests/",
             "Splot\\DependencyInjection\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Splot\\DependencyInjection\\Tests\\": "tests/"
         }
     }
 }
