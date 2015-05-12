@@ -111,12 +111,12 @@ class CachedContainer extends Container
     public function cacheCurrentState() {
         foreach($this->services as $name => $definition) {
             if ($definition instanceof ClosureService) {
-                throw new NotCacheableException('Cannot cache the container with a closure service registered ("'. $definition->getName() .'"). If you want to use a closure service set it after storing in cache or after reading from cache.');
+                throw new NotCacheableException('Cannot cache the container with a closure service registered ("'. $definition->name .'"). If you want to use a closure service set it after storing in cache or after reading from cache.');
             }
 
             // "container" is an exception, because it's set in the container constructor anyway
-            if ($definition instanceof ObjectService && $definition->getName() !== 'container') {
-                throw new NotCacheableException('Cannot cache the container with an object service registered ("'. $definition->getName() .'"). If you want to use an object service set it after storing in cache or after reading from cache.');
+            if ($definition instanceof ObjectService && $definition->name !== 'container') {
+                throw new NotCacheableException('Cannot cache the container with an object service registered ("'. $definition->name .'"). If you want to use an object service set it after storing in cache or after reading from cache.');
             }
         }
 

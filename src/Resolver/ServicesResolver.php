@@ -74,8 +74,8 @@ class ServicesResolver
         }
 
         // cannot resolve an abstract service
-        if ($service->isAbstract()) {
-            throw new AbstractServiceException('Could not instantiate abstract service "'. $service->getName() .'".');
+        if ($service->abstract) {
+            throw new AbstractServiceException('Could not instantiate abstract service "'. $service->name .'".');
         }
 
         // if the service is extending any other service then resolve all parent definitions
@@ -96,14 +96,13 @@ class ServicesResolver
 
         // if there are any method calls, then call them
         try {
-            $methodCalls = $service->getMethodCalls();
-            foreach($methodCalls as $call) {
+            foreach($service->methodCalls as $call) {
                 $this->callMethod($service, $call['method'], $call['arguments'], $instance);
             }
         } catch(CircularReferenceException $e) {
             throw $e;
         } catch(Exception $e) {
-            throw new InvalidServiceException('Could not instantiate service "'. $service->getName() .'" because one of its method calls could not be resolved: '. $e->getMessage(), 0, $e);
+            throw new InvalidServiceException('Could not instantiate service "'. $service->name .'" because one of its method calls could not be resolved: '. $e->getMessage(), 0, $e);
         }
 
         return $instance;
@@ -124,20 +123,20 @@ class ServicesResolver
      * @return Service
      */
     protected function resolveHierarchy(Service $originalService) {
-        if (!$originalService->isExtending()) {
+        if (!$originalService->extends) {
             return $originalService;
         }
 
-        $parentName = $this->parametersResolver->resolve($originalService->getExtends());
+        $parentName = $this->parametersResolver->resolve($originalService->extends);
 
         try {
             $parent = $this->container->getDefinition($parentName);
         } catch(ServiceNotFoundException $e) {
-            throw new InvalidServiceException('Service "'. $originalService->getName() .'" tried to extend an inexisting service "'. $parentName .'".', 0, $e);
+            throw new InvalidServiceException('Service "'. $originalService->name .'" tried to extend an inexisting service "'. $parentName .'".', 0, $e);
         }
 
         if ($parent instanceof ObjectService || $parent instanceof FactoryService) {
-            throw new InvalidServiceException('Service "'. $originalService->getName() .'" cannot extend an object service "'. $parent->getName() .'".');
+            throw new InvalidServiceException('Service "'. $originalService->name .'" cannot extend an object service "'. $parent->name .'".');
         }
 
         $parent = $this->resolveHierarchy($parent);
@@ -155,7 +154,7 @@ class ServicesResolver
      * @return object
      */
     protected function instantiateService(Service $service) {
-        $name = $service->getName();
+        $name = $service->name;
 
         // if already resolved the definition, then just call the resolved closure factory
         if (isset($this->instantiateClosuresCache[$name])) {
@@ -165,7 +164,7 @@ class ServicesResolver
 
         // deal with closure services
         if ($service instanceof ClosureService) {
-            $serviceClosure = $service->getClosure();
+            $serviceClosure = $service->closure;
             return $serviceClosure($this->container);
         }
 
@@ -177,22 +176,22 @@ class ServicesResolver
         // deal with factory services
         if ($service instanceof FactoryService) {
             try {
-                $factoryServiceName = $this->parametersResolver->resolve($service->getFactoryService());
+                $factoryServiceName = $this->parametersResolver->resolve($service->factoryService);
                 $factoryServiceDefinition = $this->container->getDefinition($factoryServiceName);
                 $factoryService = $this->container->get($factoryServiceName);
-                return $this->callMethod($factoryServiceDefinition, $service->getFactoryMethod(), $service->getFactoryArguments(), $factoryService);
+                return $this->callMethod($factoryServiceDefinition, $service->factoryMethod, $service->factoryArguments, $factoryService);
             } catch(Exception $e) {
                 throw new InvalidServiceException('Could not instantiate service "'. $name .'" due to: '. $e->getMessage(), 0, $e);
             }
         }
 
         // class can be defined as a parameter
-        $class = $this->parametersResolver->resolve($service->getClass());
+        $class = $this->parametersResolver->resolve($service->class);
         if (!class_exists($class)) {
             throw new InvalidServiceException('Could not instantiate service "'. $name .'" because class '. $class .' was not found.');
         }
 
-        $instantiateClosure = $this->createInstantiationClosure($class, $service->getArguments());
+        $instantiateClosure = $this->createInstantiationClosure($class, $service->arguments);
 
         // cache this closure
         $this->instantiateClosuresCache[$name] = $instantiateClosure;
@@ -277,7 +276,7 @@ class ServicesResolver
      */
     public function callMethod(Service $service, $methodName, array $arguments = array(), $instance = null) {
         if ($instance === null && !$service->isInstantiated()) {
-            throw new RuntimeException('Cannot call a method of a service that has not been instantiated yet, when trying to call "::'. $methodName .'" on "'. $service->getName() .'".');
+            throw new RuntimeException('Cannot call a method of a service that has not been instantiated yet, when trying to call "::'. $methodName .'" on "'. $service->name .'".');
         }
 
         $instance = $instance ? $instance : $service->getInstance();
