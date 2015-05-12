@@ -3,7 +3,6 @@ namespace Splot\DependencyInjection\Resolver;
 
 use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
-use Splot\DependencyInjection\Definition\Service;
 use Splot\DependencyInjection\Resolver\ArgumentsResolver;
 use Splot\DependencyInjection\Container;
 

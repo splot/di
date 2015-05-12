@@ -192,7 +192,6 @@ class ServicesResolver
             throw new InvalidServiceException('Could not instantiate service "'. $name .'" because class '. $class .' was not found.');
         }
 
-        $argumentsResolver = $this->argumentsResolver;
         $instantiateClosure = $this->createInstantiationClosure($class, $service->getArguments());
 
         // cache this closure

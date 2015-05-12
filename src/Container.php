@@ -3,7 +3,6 @@ namespace Splot\DependencyInjection;
 
 use MD\Foundation\Debug\Debugger;
 use MD\Foundation\Exceptions\InvalidFileException;
-use MD\Foundation\Exceptions\NotImplementedException;
 use MD\Foundation\Exceptions\NotFoundException;
 
 use Symfony\Component\Yaml\Yaml;
