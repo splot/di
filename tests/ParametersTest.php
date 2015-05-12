@@ -108,4 +108,17 @@ class ParametersTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals($expected, $container->dumpParameters());
     }
 
+    public function testEscapingParameterSign() {
+        $container = new Container();
+        $container->setParameter('lorem', 'ipsum');
+        $container->setParameter('dolor', 'sit.amet');
+        $container->setParameter('adipiscit.elit', '%lorem%%dolor%');
+        $container->setParameter('lipsum', '%%lorem%%');
+        $container->setParameter('lipsum.com', 'it.%dolor%%%lorem%%');
+
+        $this->assertEquals('ipsumsit.amet', $container->getParameter('adipiscit.elit'));
+        $this->assertEquals('%lorem%', $container->getParameter('lipsum'));
+        $this->assertEquals('it.sit.amet%lorem%', $container->getParameter('lipsum.com'));
+    }
+
 }
