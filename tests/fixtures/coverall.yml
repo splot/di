@@ -16,6 +16,7 @@ parameters:
     called_service.class: Splot\DependencyInjection\Tests\TestFixtures\CalledService
     extended_service.class: Splot\DependencyInjection\Tests\TestFixtures\ExtendedService
     collection_service.class: Splot\DependencyInjection\Tests\TestFixtures\CollectionService
+    collection_service_dependant.class: Splot\DependencyInjection\Tests\TestFixtures\CollectionServiceDependant
     simple_factory.class: Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory
     named_factory.class: Splot\DependencyInjection\Tests\TestFixtures\NamedFactory
     named_factory.product.class: Splot\DependencyInjection\Tests\TestFixtures\NamedProduct
@@ -71,6 +72,15 @@ services:
     aliased_service.link:
         alias: simple_service
 
+    aliased_service.multi_level.one:
+        alias: aliased_service.alias
+
+    aliased_service.multi_level.two:
+        alias: aliased_service.multi_level.one
+
+    aliased_service.multi_level.three:
+        alias: aliased_service.multi_level.two
+
     simple_service.not_singleton:
         class: %simple_service.class%
         singleton: false
@@ -106,6 +116,18 @@ services:
         notify:
             - ["collection_service", "addService", ["@", "item_two"]]
 
+    collection_service.item_dependent:
+        class: %collection_service_dependant.class%
+        arguments:
+            - @collection_service
+        notify:
+            - ["@collection_service", "addService", ["@", "dependant"]]
+
+    collection_service.item_self_referred:
+        class: %simple_service.class%
+        notify:
+            - ["collection_service", "addService", ["@", "@="]]
+
     simple_factory: %simple_factory.class%
 
     simple_factory.product.one:
@@ -133,16 +155,4 @@ services:
             - verbose
 
     named_factory.product.compact: ["@named_factory", "provide", ["compact"]]
-
-#    # e.g. how to register events
-#    event_manager:
-#        class: Splot\Framework\EventManager\EventManager
-#        arguments: ["@container"]
-#
-#    users_repository:
-#        class: Knit\Entity\Repository
-#        factory: ["@knit", "getRepository", ["Focusson\\Auth\\Entity\\User"]]
-#        notify:
-#            - ["event_manager", "subscribeService", ["Knit\\Events\\DidUpdateEntity", "users_repository", "onUpdate"]]
-#            - ["event_manager", "subscribeService", ["Knit\\Events\\DidDeleteEntity", "users_repository", "onDelete"]]
 

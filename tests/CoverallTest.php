@@ -54,6 +54,7 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
             'called_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\CalledService',
             'extended_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService',
             'collection_service.class' => 'Splot\DependencyInjection\Tests\TestFixtures\CollectionService',
+            'collection_service_dependant.class' => 'Splot\DependencyInjection\Tests\TestFixtures\CollectionServiceDependant',
             'simple_factory.class' => 'Splot\DependencyInjection\Tests\TestFixtures\SimpleFactory',
             'named_factory.class' => 'Splot\DependencyInjection\Tests\TestFixtures\NamedFactory',
             'named_factory.product.class' => 'Splot\DependencyInjection\Tests\TestFixtures\NamedProduct'
@@ -116,6 +117,12 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($multiAliasService, $this->container->get('aliased_service.multi.three'));
 
         $this->assertSame($this->container->get('aliased_service.link'), $this->container->get('simple_service'));
+
+        $aliasedService = $this->container->get('aliased_service');
+        $this->assertSame($aliasedService, $this->container->get('aliased_service.multi_level.one'));
+        $this->assertSame($aliasedService, $this->container->get('aliased_service.multi_level.two'));
+        $this->assertSame($aliasedService, $this->container->get('aliased_service.multi_level.three'));
+        $this->assertSame($this->container->get('aliased_service.multi_level.one'), $this->container->get('aliased_service.multi_level.three'));
     }
 
     public function testNotSingleton() {
@@ -153,12 +160,14 @@ class CoverallTest extends \PHPUnit_Framework_TestCase
         $service = $this->container->get('collection_service');
         $this->assertInstanceOf($this->collectionServiceClass, $service);
         $collection = $service->getServices();
-        $this->assertCount(4, $collection);
+        $this->assertCount(6, $collection);
         foreach(array(
             'item_one',
             'item_one.alias',
             'item_two',
-            'factory_product'
+            'factory_product',
+            'dependant',
+            'collection_service.item_self_referred'
         ) as $name) {
             $this->assertArrayHasKey($name, $collection);
             $this->assertInstanceOf($this->simpleServiceClass, $collection[$name]);

@@ -64,8 +64,12 @@ class ParametersResolver
 
         $container = $this->container;
         $original = $parameter;
-        $parameter = preg_replace_callback('#%([\w\d_\.]+)%#i', function($matches) use ($container, $original) {
-            $name = $matches[1];
+        $parameter = preg_replace_callback('#(%%|%)([\w\d_\.]+)%#i', function($matches) use ($container, $original) {
+            if ($matches[1] === '%%') {
+                return '%'. $matches[2];
+            }
+
+            $name = $matches[2];
             if ($container->hasParameter($name)) {
                 $param = $container->getParameter($name);
 

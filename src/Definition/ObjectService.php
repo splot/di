@@ -8,7 +8,7 @@ use Splot\DependencyInjection\Definition\Service;
 class ObjectService extends Service
 {
 
-    private $resolved = false;
+    public $resolved = false;
 
     public function __construct($name, $object) {
         parent::__construct($name);

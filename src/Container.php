@@ -3,7 +3,6 @@ namespace Splot\DependencyInjection;
 
 use MD\Foundation\Debug\Debugger;
 use MD\Foundation\Exceptions\InvalidFileException;
-use MD\Foundation\Exceptions\NotImplementedException;
 use MD\Foundation\Exceptions\NotFoundException;
 
 use Symfony\Component\Yaml\Yaml;
@@ -18,6 +17,8 @@ use Splot\DependencyInjection\Exceptions\ParameterNotFoundException;
 use Splot\DependencyInjection\Exceptions\PrivateServiceException;
 use Splot\DependencyInjection\Exceptions\ReadOnlyException;
 use Splot\DependencyInjection\Exceptions\ServiceNotFoundException;
+use Splot\DependencyInjection\Resolver\ArgumentsResolver;
+use Splot\DependencyInjection\Resolver\NotificationsResolver;
 use Splot\DependencyInjection\Resolver\ParametersResolver;
 use Splot\DependencyInjection\Resolver\ServicesResolver;
 use Splot\DependencyInjection\ContainerInterface;
@@ -38,6 +39,13 @@ class Container implements ContainerInterface
      * @var array
      */
     protected $services = array();
+
+    /**
+     * Aliases to services.
+     * 
+     * @var array
+     */
+    protected $aliases = array();
 
     /**
      * Default service options.
@@ -76,13 +84,6 @@ class Container implements ContainerInterface
     protected $loading = array();
 
     /**
-     * Notification queue for services that should be notified before they have been registered.
-     * 
-     * @var array
-     */
-    protected $notifyQueue = array();
-
-    /**
      * Parameters resolver.
      * 
      * @var ParametersResolver
@@ -97,11 +98,27 @@ class Container implements ContainerInterface
     protected $servicesResolver;
 
     /**
+     * Notifications resolver.
+     * 
+     * @var NotificationsResolver
+     */
+    protected $notificationsResolver;
+
+    /**
+     * Arguments resolver.
+     * 
+     * @var ArgumentsResolver
+     */
+    protected $argumentsResolver;
+
+    /**
      * Constructor.
      */
     public function __construct() {
         $this->parametersResolver = new ParametersResolver($this);
-        $this->servicesResolver = new ServicesResolver($this, $this->parametersResolver);
+        $this->argumentsResolver = new ArgumentsResolver($this, $this->parametersResolver);
+        $this->servicesResolver = new ServicesResolver($this, $this->parametersResolver, $this->argumentsResolver);
+        $this->notificationsResolver = new NotificationsResolver($this, $this->argumentsResolver);
 
         // register itself
         $this->set('container', $this, array(
@@ -126,6 +143,11 @@ class Container implements ContainerInterface
         // for backward compatibility
         $options = is_array($options) ? $options : array('read_only' => $options, 'singleton' => $singleton);
 
+        // if overwriting an alias $name then make sure the real service is overwritten, not just the alias
+        try {
+            $name = $this->resolveServiceName($name);
+        } catch(ServiceNotFoundException $e) {}
+
         $service = Debugger::getType($object) === 'closure'
             ? new ClosureService($name, $object)
             : new ObjectService($name, $object);
@@ -145,6 +167,12 @@ class Container implements ContainerInterface
     public function register($name, $options) {
         // if $options is a string then treat it as a class name
         $options = is_array($options) ? $options : array('class' => $options);
+
+        // if overwriting an alias $name then make sure the real service is overwritten, not just the alias
+        try {
+            $name = $this->resolveServiceName($name);
+        } catch(ServiceNotFoundException $e) {}
+
         $this->addService(new Service($name), $options);
     }
 
@@ -158,22 +186,24 @@ class Container implements ContainerInterface
      * @throws CircularReferenceException When a circular dependency was found while retrieving the service.
      */
     public function get($name) {
-        if (!isset($this->services[$name])) {
-            throw new ServiceNotFoundException('Requested undefined service "'. $name .'".');
-        }
+        $requestedName = $name;
+        $name = $this->resolveServiceName($name);
 
         // if this service is already on the loading list then it means there's a circular reference somewhere
         if (isset($this->loading[$name])) {
             $loadingServices = implode(', ', array_keys($this->loading));
             $this->loading = array();
-            throw new CircularReferenceException('Circular reference detected during loading of chained services '. $loadingServices .'. Referenced service: "'. $name .'".');
+            $debugName = '"'. $requestedName .'"'. ($name !== $requestedName ? ' (alias for: "'. $name .'")' : '');
+            throw new CircularReferenceException('Circular reference detected during loading of chained services '. $loadingServices .'. Referenced service: '. $debugName .'.');
         }
 
         // get service definition
         $service = $this->services[$name];
 
-        if ($service->isPrivate() && empty($this->loading)) {
-            throw new PrivateServiceException('Requested private service "'. $name .'".');
+        if ($service->private && empty($this->loading) && !$this->notificationsResolver->resolving) {
+            $this->loading = array();
+            $debugName = '"'. $requestedName .'"'. ($name !== $requestedName ? ' (alias for: "'. $name .'")' : '');
+            throw new PrivateServiceException('Requested private service '. $debugName .'.');
         }
 
         // mark this service as being currently loaded
@@ -182,8 +212,19 @@ class Container implements ContainerInterface
         // load this service
         $instance = $this->servicesResolver->resolve($service);
 
+        // enqueue the service for delivering any notifications directed at it,
+        // after the whole dependency tree has been resolved
+        $this->notificationsResolver->queue[$name] = array(
+            'name' => $name,
+            'instance' => $instance
+        );
+
         // if loaded successfully then remove it from loading array
         unset($this->loading[$name]);
+
+        if (empty($this->loading)) {
+            $this->notificationsResolver->resolveQueue();
+        }
 
         return $instance;
     }
@@ -195,7 +236,12 @@ class Container implements ContainerInterface
      * @return boolean
      */
     public function has($name) {
-        return isset($this->services[$name]);
+        try {
+            $this->resolveServiceName($name);
+        } catch(ServiceNotFoundException $e) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -207,15 +253,64 @@ class Container implements ContainerInterface
      * @throws ServiceNotFoundException When could not find a service with the given name.
      */
     public function getDefinition($name) {
-        if (!isset($this->services[$name])) {
-            throw new ServiceNotFoundException('Requested definition of an undefined service "'. $name .'".');
-        }
-
+        $name = $this->resolveServiceName($name);
         return $this->services[$name];
     }
 
+    /**
+     * Resolves a service name through the chain of aliases.
+     * 
+     * @param  string $name         Service name.
+     * @param  string $originalName [optional] Original requested name. For internal use. Default: `null`.
+     * @return string
+     *
+     * @throws ServiceNotFoundException When the given name could not be resolved (meaning that the service probably does not exist).
+     */
+    public function resolveServiceName($name, $originalName = null) {
+        if (isset($this->services[$name])) {
+            return $name;
+        }
+
+        if (isset($this->aliases[$name])) {
+            return $this->resolveServiceName($this->aliases[$name], $originalName ? $originalName : $name);
+        }
+
+        throw new ServiceNotFoundException('Could not find service called "'. $name .'"' . ($originalName ? ' (requested as "'. $originalName .'")' : '') .'.');
+    }
+
+    /**
+     * Returns (basic) information about all registered services.
+     * 
+     * @return array
+     */
     public function dump() {
-        throw new NotImplementedException();
+        $services = array();
+
+        foreach($this->services as $name => $definition) {
+            $info = array(
+                'name' => $name
+            );
+
+            $class = $definition->getClass();
+            if ($class) {
+                $info['class'] = ltrim($this->parametersResolver->resolve($class), NS);
+            }
+
+            if ($definition instanceof ObjectService) {
+                $info['class'] = Debugger::getClass($definition->getInstance());
+            }
+
+            $services[$name] = $info;
+        }
+
+        foreach($this->aliases as $alias => $target) {
+            $services[$alias] = array(
+                'name' => $alias,
+                'alias' => $this->resolveServiceName($target)
+            );
+        }
+
+        return $services;
     }
 
     /**
@@ -349,11 +444,9 @@ class Container implements ContainerInterface
 
         $options = $this->expandAndVerifyOptions($options, $service);
 
-        // if just an alias then link to aliased service
+        // if just an alias then add to list of aliases
         if ($options['alias']) {
-            $this->services[$service->getName()] = $this->getDefinition($options['alias']);
-            $this->clearInternalCaches();
-            return;
+            return $this->addAlias($service->getName(), $options['alias']);
         }
 
         // if factory then replace the service instance
@@ -369,11 +462,18 @@ class Container implements ContainerInterface
         $service->setReadOnly($options['read_only']);
         $service->setPrivate($options['private']);
 
+        // do register the service
         $this->services[$service->getName()] = $service;
 
+        // also register aliases
+        foreach($options['aliases'] as $alias) {
+            $this->addAlias($alias, $service->getName());
+        }
+
+        // register method calls on the service (setter injection)
         if (is_array($options['call']) && !empty($options['call'])) {
             foreach($options['call'] as $call) {
-                if (!isset($call[0]) || !is_string($call[0])) {
+                if (!isset($call[0]) || !is_string($call[0]) || empty($call[0])) {
                     throw new InvalidServiceException('Invalid method calls definition in definition of service "'. $service->getName() .'".');
                 }
 
@@ -385,80 +485,40 @@ class Container implements ContainerInterface
             }
         }
 
-        // handle notifying other services about this service existence
+        // register notifications
         if (is_array($options['notify']) && !empty($options['notify'])) {
             foreach($options['notify'] as $notify) {
-                if (!isset($notify[0]) || !is_string($notify[0])) {
-                    throw new InvalidServiceException('Invalid service name given to notify about existence of "'. $service->getName() .'".');
+                if (!isset($notify[0]) || !is_string($notify[0]) || empty($notify[0])) {
+                    throw new InvalidServiceException('Invalid service name given to notify by "'. $service->getName() .'".');
                 }
 
-                $notifyServiceName = ltrim($notify[0], '@');
+                $targetServiceName = ltrim($notify[0], '@');
 
-                if (!isset($notify[1]) || !is_string($notify[1])) {
-                    throw new InvalidServiceException('Invalid method name to call given to notify about existence of "'. $service->getName() .'".');
+                if (!isset($notify[1]) || !is_string($notify[1]) || empty($notify[1])) {
+                    throw new InvalidServiceException('Invalid method name given to notify "'. $targetServiceName .'" by "'. $service->getName() .'".');
                 }
 
-                $notifyMethodName = $notify[1];
+                $methodName = $notify[1];
 
                 $arguments = isset($notify[2])
                     ? (is_array($notify[2])
                         ? $notify[2] : array($notify[2])
                     ) : array();
-                $arguments = $this->servicesResolver->parseSelfInArgument($service, $arguments);
 
-                // if the service is already registered then add defined method call
-                if ($this->has($notifyServiceName)) {
-                    $notifyService = $this->services[$notifyServiceName];
-                    $notifyService->addMethodCall($notifyMethodName, $arguments);
-
-                    // if this service is already instantiated then call methods directly on it
-                    if ($notifyService->isInstantiated()) {
-                        $this->servicesResolver->callMethod($notifyService, array(
-                            'method' => $notifyMethodName,
-                            'arguments' => $arguments
-                        ));
-                    }
-
-                // if the service hasn't been registered yet then wait for it in a queue
-                } else {
-                    if (!isset($this->notifyQueue[$notifyServiceName])) {
-                        $this->notifyQueue[$notifyServiceName] = array();
-                    }
-                
-                    $this->notifyQueue[$notifyServiceName][] = array(
-                        'service' => $notifyServiceName,
-                        'method' => $notifyMethodName,
-                        'arguments' => $arguments
-                    );
-                }
-            }
-        }
-
-        // maybe there are some notifications already waiting for this service?
-        if (isset($this->notifyQueue[$service->getName()])) {
-            foreach($this->notifyQueue[$service->getName()] as $notify) {
-                $service->addMethodCall($notify['method'], $notify['arguments']);
-            }
-        }
-
-        // also register for aliases
-        foreach($options['aliases'] as $alias) {
-            if ($this->has($alias)) {
-                throw new InvalidServiceException('Trying to overwrite a previously defined service with an alias "'. $alias .'" for "'. $service->getName() .'".');
-            }
-            $this->services[$alias] = $service;
-
-            // maybe there are some notifications waiting for this service alias?
-            if (isset($this->notifyQueue[$alias])) {
-                foreach($this->notifyQueue[$alias] as $notify) {
-                    $service->addMethodCall($notify['method'], $notify['arguments']);
-                }
+                $this->notificationsResolver->registerNotification($service->getName(), $targetServiceName, $methodName, $arguments);
             }
         }
 
         $this->clearInternalCaches();
     }
 
+    /**
+     * Expands short options and definitions to full options array.
+     * 
+     * @param  array   $options Array of service definition options.
+     * @param  Service $service The service to configure.
+     * @return array
+     */
     protected function expandAndVerifyOptions(array $options, Service $service) {
         // if options is an array with at least 2 numeric keys then treat it as a very compact factory definition
         if (isset($options[0]) && isset($options[1]) && (count($options) === 2 || count($options) === 3)) {
@@ -488,6 +548,22 @@ class Container implements ContainerInterface
         }
 
         return $options;
+    }
+
+    /**
+     * Adds an alias for a service.
+     * 
+     * @param string $alias Alias name.
+     * @param string $for   Name of the target/aliased service.
+     */
+    protected function addAlias($alias, $for) {
+        if ($this->has($alias)) {
+            throw new InvalidServiceException('Trying to overwrite a previously defined service with an alias "'. $alias .'" for "'. $for .'".');
+        }
+
+        $this->aliases[$alias] = $for;
+
+        $this->notificationsResolver->rerouteNotifications($alias, $for);
     }
 
     /**

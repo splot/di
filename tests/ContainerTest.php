@@ -19,6 +19,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
     private $simpleServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\SimpleService';
     private $abstractServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\AbstractService';
     private $argumentedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ArgumentedService';
+    private $veryArgumentedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\VeryArgumentedService';
     private $parametrizedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ParametrizedService';
     private $calledServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\CalledService';
     private $extendedServiceClass = 'Splot\DependencyInjection\Tests\TestFixtures\ExtendedService';
@@ -121,7 +122,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $simple = new SimpleService();
         $container->set('simple', $simple);
         // overwrite
-        $container->set('simple', $this->simpleServiceClass);
+        $container->register('simple', $this->simpleServiceClass);
         $this->assertNotSame($simple, $container->get('simple'));
     }
 
@@ -198,6 +199,49 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertEquals('splot', $argumented->name);
         $this->assertEquals(2, $argumented->version);
         $this->assertEquals('alpha', $argumented->stability);
+    }
+
+    public function testRegisteringWithALotOfArguments() {
+        $container = new Container();
+        $container->register('very_argumented', array(
+            'class' => $this->veryArgumentedServiceClass,
+            'arguments' => array(
+                'splot',
+                2,
+                'alpha',
+                true,
+                'Copyright (c) John Doe',
+                23
+            )
+        ));
+        $argumented = $container->get('very_argumented');
+        $this->assertInstanceOf($this->veryArgumentedServiceClass, $argumented);
+    }
+
+    public function testRegisteringWithALotOfArgumentsInCalls() {
+        $container = new Container();
+        $container->register('very_argumented', array(
+            'class' => $this->veryArgumentedServiceClass,
+            'arguments' => array(
+                'splot',
+                2,
+                'alpha',
+                true,
+                'Copyright (c) John Doe',
+                23
+            ),
+            'call' => array(
+                array('setEverything', array()),
+                array('setEverything', array('di')),
+                array('setEverything', array('di', 3)),
+                array('setEverything', array('di', 3, 'beta')),
+                array('setEverything', array('di', 3, 'beta', false)),
+                array('setEverything', array('di', 3, 'beta', false, 'Copyleft')),
+                array('setEverything', array('di', 3, 'beta', false, 'Copyleft', 123))
+            )
+        ));
+        $argumented = $container->get('very_argumented');
+        $this->assertInstanceOf($this->veryArgumentedServiceClass, $argumented);
     }
 
     public function testRegisteringWithParametersInConstructorInjection() {
@@ -603,6 +647,43 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         ));
 
         $this->assertInstanceOf($this->parametrizedServiceClass, $container->get('parametrized'));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringInvalidNotification() {
+        $container = new Container();
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array()
+            )
+        ));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testRegisteringInvalidNotificationMethodName() {
+        $container = new Container();
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('container')
+            )
+        ));
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testOverwritingByAlias() {
+        $container = new Container();
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'aliases' => array('container')
+        ));
     }
 
     /**
@@ -1035,9 +1116,9 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
      */
     public function testRegisteringInvalidFactoryService() {
         $container = new Container();
-        $container->register('factory', $this->abstractServiceClass);
+        $container->register('factory', $this->namedFactoryClass);
         $container->register('factory_product', array(
-            'factory_service' => 'factory',
+            'factory_service' => 'factory_not_found',
             'factory_method' => 'provide'
         ));
         $container->get('factory_product');
@@ -1141,6 +1222,87 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertSame($container->get('one'), $collection->getService('one'));
     }
 
+    public function testNotifyingServiceByAlias() {
+        $container = new Container();
+        $container->register('collection', array(
+            'class' => $this->collectionServiceClass,
+            'aliases' => array('list', 'simple_services')
+        ));
+
+        $container->register('lipsum', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('collection', 'addService', array('@', '@=')),
+                array('list', 'addService', array('@', 'lipsum.list')),
+                array('simple_services', 'addService', array('@', 'lipsum.simple_services')),
+                array('set_of_services', 'addService', array('@', 'lipsum.set_of_services'))
+            )
+        ));
+
+        $container->register('set_of_services', array(
+            'alias' => 'list'
+        ));
+
+        $collection = $container->get('collection');
+        $this->assertCount(4, $collection->getServices());
+    }
+
+    public function testNotifyingServiceWithLotsOfArguments() {
+        $container = new Container();
+        $container->register('very_argumented', array(
+            'class' => $this->veryArgumentedServiceClass,
+            'arguments' => array(
+                'splot',
+                2,
+                'alpha',
+                true,
+                'Copyright (c) John Doe',
+                23
+            ),
+            'call' => array(
+                array('setEverything', array()),
+                array('setEverything', array('di')),
+                array('setEverything', array('di', 3)),
+                array('setEverything', array('di', 3, 'beta')),
+                array('setEverything', array('di', 3, 'beta', false)),
+                array('setEverything', array('di', 3, 'beta', false, 'Copyleft')),
+                array('setEverything', array('di', 3, 'beta', false, 'Copyleft', 123))
+            )
+        ));
+        $container->register('simple', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('@very_argumented', 'setEverything', array()),
+                array('@very_argumented', 'setEverything', array('di')),
+                array('@very_argumented', 'setEverything', array('di', 3)),
+                array('@very_argumented', 'setEverything', array('di', 3, 'beta')),
+                array('@very_argumented', 'setEverything', array('di', 3, 'beta', false)),
+                array('@very_argumented', 'setEverything', array('di', 3, 'beta', false, 'Copyleft')),
+                array('@very_argumented', 'setEverything', array('di', 3, 'beta', false, 'Copyleft', 123))
+            )
+        ));
+        $argumented = $container->get('very_argumented');
+        $this->assertInstanceOf($this->veryArgumentedServiceClass, $argumented);
+    }
+
+    /**
+     * @expectedException \Splot\DependencyInjection\Exceptions\InvalidServiceException
+     */
+    public function testNotifyingServiceWithWrongMethod() {
+        $container = new Container();
+
+        $container->register('collection', $this->collectionServiceClass);
+
+        $container->register('not_a_good_service', array(
+            'class' => $this->simpleServiceClass,
+            'notify' => array(
+                array('collection', 'addObject', array('@', '@='))
+            )
+        ));
+
+        $container->get('collection');
+    }
+
     public function testInjectArrayFromParameter() {
         $container = new Container();
         $container->setParameter('names', array('name1', 'name2', 'name3', 'name4'));
@@ -1150,6 +1312,69 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         ));
 
         $this->assertNotEmpty($container->get('arrayed'));
+    }
+
+    public function testDumpServices() {
+        $container = new Container();
+        $container->setParameter('collection.class', $this->collectionServiceClass);
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('simple.alias', array('alias' => 'simple'));
+        $container->register('called_service', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('asd', 3)
+        ));
+        $container->register('simple_factory', $this->simpleFactoryClass);
+        $container->register('simple_factory.product.one', array(
+            'factory' => array('@simple_factory', 'get'),
+            'aliases' => array('factoried_service')
+        ));
+        $container->register('collection', '%collection.class%');
+
+        $this->assertEquals(array(
+            'container' => array(
+                'name' => 'container',
+                'class' => 'Splot\DependencyInjection\Container'
+            ),
+            'service_container' => array(
+                'name' => 'service_container',
+                'alias' => 'container'
+            ),
+            'services_container' => array(
+                'name' => 'services_container',
+                'alias' => 'container'
+            ),
+            'di_container' => array(
+                'name' => 'di_container',
+                'alias' => 'container'
+            ),
+            'simple' => array(
+                'name' => 'simple',
+                'class' => $this->simpleServiceClass
+            ),
+            'simple.alias' => array(
+                'name' => 'simple.alias',
+                'alias' => 'simple'
+            ),
+            'called_service' => array(
+                'name' => 'called_service',
+                'class' => $this->calledServiceClass
+            ),
+            'simple_factory' => array(
+                'name' => 'simple_factory',
+                'class' => $this->simpleFactoryClass
+            ),
+            'simple_factory.product.one' => array(
+                'name' => 'simple_factory.product.one'
+            ),
+            'factoried_service' => array(
+                'name' => 'factoried_service',
+                'alias' => 'simple_factory.product.one'
+            ),
+            'collection' => array(
+                'name' => 'collection',
+                'class' => $this->collectionServiceClass
+            )
+        ), $container->dump());
     }
 
 }

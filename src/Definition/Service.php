@@ -6,25 +6,25 @@ use Splot\DependencyInjection\Exceptions\InvalidServiceException;
 class Service
 {
 
-    protected $name;
+    public $name;
 
-    protected $class;
+    public $class;
 
-    protected $arguments = array();
+    public $arguments = array();
 
-    protected $methodCalls = array();
+    public $methodCalls = array();
 
-    protected $extends = null;
+    public $extends = null;
 
-    protected $singleton = true;
+    public $singleton = true;
 
-    protected $abstract = false;
+    public $abstract = false;
 
-    protected $readOnly = false;
+    public $readOnly = false;
 
-    protected $private = false;
+    public $private = false;
 
-    protected $instance;
+    public $instance;
 
     public function __construct($name) {
         $this->name = $name;
@@ -159,6 +159,20 @@ class Service
 
     public function __clone() {
         $this->instance = null;
+    }
+
+    public function __sleep() {
+        return array(
+            'name',
+            'class',
+            'arguments',
+            'methodCalls',
+            'extends',
+            'singleton',
+            'abstract',
+            'readOnly',
+            'private'
+        );
     }
 
 }
