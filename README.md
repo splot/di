@@ -15,13 +15,14 @@ It's a viable alternative to popular [Symfony Dependency Injection Component](ht
 
 - Supports both constructor (`arguments` option) and setter injection (`call` option).
 - Includes a "parameter container" and parameters can be used inside of various options or as dependencies or include one another.
-- Can notify other services about a service existence (e.g. for adding handlers to a collection).
+- Services can notify (call) other services (e.g. for adding handlers to a collection).
 - Supports factory definitions, where service is created by calling a method on another service.
 - Definitions can extend each other to avoid repeating common formulae (`extends` option).
 - Allows optional arguments.
 - Reads definitions from YML files.
 - Supports private, read only and aliased services as well as singleton services (default) and not-singleton services (option).
 - Compatible with [PHP Container Interoperability](https://github.com/container-interop/container-interop) project.
+- Container state can be cached to prevent rebuilding it on every request.
 
 ## TL;DR docs
 
@@ -67,16 +68,10 @@ All you need to do to start using it is instantiation:
 
 ## Using the container
 
-#### Registering
-
-There are several ways to register services:
+#### Registering services
 
 - `$container->register('my_service_name', 'MyClass')` - easiest if your class doesn't have any other dependencies,
-- `$container->register('my_service_name', array('class' => 'MyClass', ...))` - more advanced if you want to add some options (documented below),
-- `$container->set('my_service_name', new \MyClass())` - when you want to register an existing object as a service,
-- `$container->set('my_service_name', function() { return new \MyClass(); })` - when you want to build a service through a closure.
-
-The `::register()` method is preferred.
+- `$container->register('my_service_name', array('class' => 'MyClass', ...))` - more advanced if you want to add some options (documented below).
 
 #### Loading from YML
 
@@ -125,7 +120,7 @@ They can also concatenate as strings:
     $container->setParameter('version', 1);
     $container->setParameter('app_name', 'MyApp ver. %version%');
 
-Whenever referencing a parameter you should surround its name in `%` signs - one in front and one behind.
+Whenever referencing a parameter you should surround its name in `%` signs - one in front and one behind (you can also escape `%` signs by using them twice - `%%`).
 
 ### Referencing other services and parameters
 
@@ -221,7 +216,7 @@ An array where index 0 = `factory_service`, 1 = `factory_method` and 2 = `factor
 
 #### notify
 
-Unique feature of Splot DI is ability for services to notify other services about their existence. This is an alternative to tagging and writing compiler passes in Symfony DI Component.
+Unique feature of Splot DI is ability for services to notify other services. This is an alternative to tagging and writing compiler passes in Symfony DI Component.
 
 `notify` is essentially a method call on another service that may or may not exist.
 
@@ -242,7 +237,11 @@ Unique feature of Splot DI is ability for services to notify other services abou
 
 With the above definition, retrieving the service `my_services_collection` will also cause services `my_service.one` and `my_service.two` to be instantiated and injected to `my_services_collection` by calling `::addService()` method on `my_services_collection` with specified arguments for each of the injected services. The special character `@` in this case refers to the service itself and is a shorthand for `@my_service.one` or `@my_service.two` appropriately.
 
+You can use `@` sign to reference the service itself in arguments of a notification or `@=` to reference name of the service.
+
 However, retrieving the service `my_service.one` itself will not cause `my_services_collection` to be instantiated. But later, if `my_services_collection` is instantiated then `my_service.one` will be appropriately injected to it.
+
+The sender service (e.g. `my_services.two` in the example above) will only be instantiated if you reference it by `@` in notification argument. Otherwise it's subject to normal instantiation strategy.
 
 A service can notify indefinite number of other services. It can also try to notify services that don't exist - in which case no exception is thrown nor any error raised.
 
