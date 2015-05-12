@@ -279,8 +279,39 @@ class Container implements ContainerInterface
         throw new ServiceNotFoundException('Could not find service called "'. $name .'"' . ($originalName ? ' (requested as "'. $originalName .'")' : '') .'.');
     }
 
+    /**
+     * Returns (basic) information about all registered services.
+     * 
+     * @return array
+     */
     public function dump() {
-        throw new NotImplementedException();
+        $services = array();
+
+        foreach($this->services as $name => $definition) {
+            $info = array(
+                'name' => $name
+            );
+
+            $class = $definition->getClass();
+            if ($class) {
+                $info['class'] = ltrim($this->parametersResolver->resolve($class), NS);
+            }
+
+            if ($definition instanceof ObjectService) {
+                $info['class'] = Debugger::getClass($definition->getInstance());
+            }
+
+            $services[$name] = $info;
+        }
+
+        foreach($this->aliases as $alias => $target) {
+            $services[$alias] = array(
+                'name' => $alias,
+                'alias' => $this->resolveServiceName($target)
+            );
+        }
+
+        return $services;
     }
 
     /**

@@ -1314,4 +1314,67 @@ class ContainerTest extends \PHPUnit_Framework_TestCase
         $this->assertNotEmpty($container->get('arrayed'));
     }
 
+    public function testDumpServices() {
+        $container = new Container();
+        $container->setParameter('collection.class', $this->collectionServiceClass);
+        $container->register('simple', $this->simpleServiceClass);
+        $container->register('simple.alias', array('alias' => 'simple'));
+        $container->register('called_service', array(
+            'class' => $this->calledServiceClass,
+            'arguments' => array('asd', 3)
+        ));
+        $container->register('simple_factory', $this->simpleFactoryClass);
+        $container->register('simple_factory.product.one', array(
+            'factory' => array('@simple_factory', 'get'),
+            'aliases' => array('factoried_service')
+        ));
+        $container->register('collection', '%collection.class%');
+
+        $this->assertEquals(array(
+            'container' => array(
+                'name' => 'container',
+                'class' => 'Splot\DependencyInjection\Container'
+            ),
+            'service_container' => array(
+                'name' => 'service_container',
+                'alias' => 'container'
+            ),
+            'services_container' => array(
+                'name' => 'services_container',
+                'alias' => 'container'
+            ),
+            'di_container' => array(
+                'name' => 'di_container',
+                'alias' => 'container'
+            ),
+            'simple' => array(
+                'name' => 'simple',
+                'class' => $this->simpleServiceClass
+            ),
+            'simple.alias' => array(
+                'name' => 'simple.alias',
+                'alias' => 'simple'
+            ),
+            'called_service' => array(
+                'name' => 'called_service',
+                'class' => $this->calledServiceClass
+            ),
+            'simple_factory' => array(
+                'name' => 'simple_factory',
+                'class' => $this->simpleFactoryClass
+            ),
+            'simple_factory.product.one' => array(
+                'name' => 'simple_factory.product.one'
+            ),
+            'factoried_service' => array(
+                'name' => 'factoried_service',
+                'alias' => 'simple_factory.product.one'
+            ),
+            'collection' => array(
+                'name' => 'collection',
+                'class' => $this->collectionServiceClass
+            )
+        ), $container->dump());
+    }
+
 }
