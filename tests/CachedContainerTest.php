@@ -39,6 +39,7 @@ class CachedContainerTest extends CoverallTest
                 'services' => array(),
                 'aliases' => array(),
                 'notifications' => array(),
+                'loaded_files' => array()
             ));
         $cache->expects($this->once())
             ->method('save');

@@ -80,6 +80,7 @@ class CachedContainer extends Container
             || !isset($cachedData['services']) || !is_array($cachedData['services'])
             || !isset($cachedData['aliases']) || !is_array($cachedData['aliases'])
             || !isset($cachedData['notifications']) || !is_array($cachedData['notifications'])
+            || !isset($cachedData['loaded_files']) || !is_array($cachedData['loaded_files'])
         ) {
             throw new CacheDataNotFoundException('Container cache has returned invalid data.');
         }
@@ -88,6 +89,7 @@ class CachedContainer extends Container
         $this->services = array_merge($cachedData['services'], $this->services);
         $this->aliases = array_merge($cachedData['aliases'], $this->aliases);
         $this->notificationsResolver->notifications = array_merge($cachedData['notifications'], $this->notificationsResolver->notifications);
+        $this->loadedFiles = array_merge($cachedData['loaded_files'], $this->loadedFiles);
 
         // deliver notifications to any services that have already been instantiated
         $this->notificationsResolver->queue = array_merge($this->preCacheServices, $this->notificationsResolver->queue);
@@ -122,7 +124,8 @@ class CachedContainer extends Container
             'parameters' => $this->parameters,
             'services' => $this->services,
             'aliases' => $this->aliases,
-            'notifications' => $this->notificationsResolver->notifications
+            'notifications' => $this->notificationsResolver->notifications,
+            'loaded_files' => $this->loadedFiles
         ));
     }
 
