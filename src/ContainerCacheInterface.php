@@ -27,6 +27,6 @@ interface ContainerCacheInterface
     /**
      * Clears the container cache.
      */
-    function clear();
+    function flush();
 
 }

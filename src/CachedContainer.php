@@ -133,7 +133,7 @@ class CachedContainer extends Container
      * Clear the cache.
      */
     public function clearCache() {
-        $this->cache->clear();
+        $this->cache->flush();
     }
 
 }

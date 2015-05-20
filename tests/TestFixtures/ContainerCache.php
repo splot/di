@@ -21,7 +21,7 @@ class ContainerCache implements ContainerCacheInterface
         $this->data = serialize($data);
     }
 
-    public function clear() {
+    public function flush() {
         $this->data = null;
     }
 

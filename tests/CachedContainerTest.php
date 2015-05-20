@@ -44,7 +44,7 @@ class CachedContainerTest extends CoverallTest
         $cache->expects($this->once())
             ->method('save');
         $cache->expects($this->once())
-            ->method('clear');
+            ->method('flush');
 
         $container = new CachedContainer($cache);
         $container->loadFromFile(__DIR__ .'/fixtures/coverall.yml');
