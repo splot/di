@@ -68,10 +68,16 @@ class CachedContainer extends Container
      *
      * It will try to not overwrite any service (or param) that has already been
      * registered in the container.
+     *
+     * @param boolean $checkModifiedFiles [optional] Check if any of the loaded files has been
+     *                                    modified since it was cached. If yes, then invalidate
+     *                                    the whole cache. May slightly slow down performance,
+     *                                    so should not be enabled in production environment.
+     *                                    Default: `false`.
      * 
-     * @throws CacheDataNotFoundException When there wasn't any data in the cache.
+     * @throws CacheDataNotFoundException When there wasn't any data in the cache or it was outdated.
      */
-    public function loadFromCache() {
+    public function loadFromCache($checkModifiedFiles = false) {
         $cachedData = $this->cache->load();
 
         if (
@@ -83,6 +89,20 @@ class CachedContainer extends Container
             || !isset($cachedData['loaded_files']) || !is_array($cachedData['loaded_files'])
         ) {
             throw new CacheDataNotFoundException('Container cache has returned invalid data.');
+        }
+
+        // check if any of the loaded files has been modified since writing to cache
+        if ($checkModifiedFiles) {
+            foreach($cachedData['loaded_files'] as $info) {
+                if (
+                    !isset($info['path'])
+                    || !is_file($info['path'])
+                    || !isset($info['mtime'])
+                    || $info['mtime'] < filemtime($info['path'])
+                ) {
+                    throw new CacheDataNotFoundException('File "'. $info['file'] .'" has been modified since the cache was built.');
+                }
+            }
         }
 
         $this->parameters = array_merge($cachedData['parameters'], $this->parameters);

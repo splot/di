@@ -370,7 +370,7 @@ class Container implements ContainerInterface
      */
     public function loadFromFile($file) {
         // if file already loaded then ignore it
-        if (in_array($file, $this->loadedFiles)) {
+        if (isset($this->loadedFiles[$file])) {
             return true;
         }
 
@@ -395,7 +395,10 @@ class Container implements ContainerInterface
 
         // add to loaded files
         if ($success) {
-            $this->loadedFiles[] = $file;
+            $this->loadedFiles[$file] = array(
+                'path' => $file,
+                'mtime' => filemtime($file)
+            );
         }
 
         return $success;
