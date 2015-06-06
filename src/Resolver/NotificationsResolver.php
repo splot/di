@@ -31,6 +31,16 @@ class NotificationsResolver
     public $notifications = array();
 
     /**
+     * List of all delivered notifications, indexed by target service name.
+     *
+     * Used mainly when loading the container from cache to make sure that notifications
+     * delivered before container was written to cache aren't lost.
+     * 
+     * @var array
+     */
+    public $deliveredNotifications = array();
+
+    /**
      * Queue of services for which notifications should be resolved in the next
      * call to `::resolveQueue()`.
      * 
@@ -152,36 +162,44 @@ class NotificationsResolver
             throw new InvalidServiceException('Could not deliver notification to service "'. $targetServiceName .'" because the method "'. $methodName .'()" does not exist in it. Sender: "'. $senderName .'".');
         }
 
-        $arguments = $this->argumentsResolver->resolve($arguments, $senderName);
+        $args = $this->argumentsResolver->resolve($arguments, $senderName);
 
-        switch(count($arguments)) {
+        switch(count($args)) {
             case 0:
                 $targetService->$methodName();
             break;
 
             case 1:
-                $targetService->$methodName($arguments[0]);
+                $targetService->$methodName($args[0]);
             break;
 
             case 2:
-                $targetService->$methodName($arguments[0], $arguments[1]);
+                $targetService->$methodName($args[0], $args[1]);
             break;
 
             case 3:
-                $targetService->$methodName($arguments[0], $arguments[1], $arguments[2]);
+                $targetService->$methodName($args[0], $args[1], $args[2]);
             break;
 
             case 4:
-                $targetService->$methodName($arguments[0], $arguments[1], $arguments[2], $arguments[3]);
+                $targetService->$methodName($args[0], $args[1], $args[2], $args[3]);
             break;
 
             case 5:
-                $targetService->$methodName($arguments[0], $arguments[1], $arguments[2], $arguments[3], $arguments[4]);
+                $targetService->$methodName($args[0], $args[1], $args[2], $args[3], $args[4]);
             break;
 
             default:
-                call_user_func_array(array($targetService, $methodName), $arguments);
+                call_user_func_array(array($targetService, $methodName), $args);
         }
+
+        // add this notification to the list of delivered notifications
+        $this->deliveredNotifications[$targetServiceName][] = array(
+            'sender' => $senderName,
+            'target' => $targetServiceName,
+            'method' => $methodName,
+            'arguments' => $arguments
+        );
 
         return true;
     }

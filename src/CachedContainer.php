@@ -114,17 +114,26 @@ class CachedContainer extends Container
                 throw new NotCacheableException('Cannot cache the container with a closure service registered ("'. $definition->name .'"). If you want to use a closure service set it after storing in cache or after reading from cache.');
             }
 
-            // "container" is an exception, because it's set in the container constructor anyway
+            // "container" is an exception case, because it's set in the container constructor anyway
             if ($definition instanceof ObjectService && $definition->name !== 'container') {
                 throw new NotCacheableException('Cannot cache the container with an object service registered ("'. $definition->name .'"). If you want to use an object service set it after storing in cache or after reading from cache.');
             }
+        }
+
+        // merge back the delivered notifications to the notifications list
+        $notifications = $this->notificationsResolver->notifications;
+        foreach($this->notificationsResolver->deliveredNotifications as $target => $items) {
+            if (!isset($notifications[$target])) {
+                $notifications[$target] = array();
+            }
+            $notifications[$target] = array_merge($items, $notifications[$target]);
         }
 
         $this->cache->save(array(
             'parameters' => $this->parameters,
             'services' => $this->services,
             'aliases' => $this->aliases,
-            'notifications' => $this->notificationsResolver->notifications,
+            'notifications' => $notifications,
             'loaded_files' => $this->loadedFiles
         ));
     }
