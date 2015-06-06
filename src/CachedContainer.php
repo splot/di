@@ -100,7 +100,7 @@ class CachedContainer extends Container
                     || !isset($info['mtime'])
                     || $info['mtime'] < filemtime($info['path'])
                 ) {
-                    throw new CacheDataNotFoundException('File "'. $info['file'] .'" has been modified since the cache was built.');
+                    throw new CacheDataNotFoundException('File "'. $info['path'] .'" has been modified since the cache was built.');
                 }
             }
         }
