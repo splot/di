@@ -40,7 +40,7 @@ interface ContainerInterface extends InteropContainerInterface
      * @throws ServiceNotFoundException When could not find a service with the given name.
      * @throws CircularReferenceException When a circular dependency was found while retrieving the service.
      */
-    function get($name);
+    // function get($name);
 
     /**
      * Checks if the given service is registered.
@@ -48,7 +48,7 @@ interface ContainerInterface extends InteropContainerInterface
      * @param  string  $name Name of the service.
      * @return boolean
      */
-    function has($name);
+    // function has($name);
 
     /**
      * Returns the definition of a service.
